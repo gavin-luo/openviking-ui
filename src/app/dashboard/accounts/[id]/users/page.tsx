@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { getAccountUsers, createAccountUser, deleteAccountUser, updateAccountUserRole, regenerateAccountUserKey } from "@/lib/api/openviking";
 
 interface User {
   user_id: string;
@@ -22,8 +23,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}/users`);
-      const data = await res.json();
+      const data = await getAccountUsers(accountId);
       if (data.status === "ok") {
         setUsers(data.result || []);
       }
@@ -41,15 +41,10 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: newUserId,
-          role: newUserRole,
-        }),
+      const data = await createAccountUser(accountId, {
+        user_id: newUserId,
+        role: newUserRole,
       });
-      const data = await res.json();
       if (data.status === "ok") {
         setModalKey(data.result.user_key);
         fetchUsers();
@@ -66,10 +61,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const handleDelete = async (userId: string) => {
     if (!confirm(`确定要移除用户 ${userId} 吗？`)) return;
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}/users/${userId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
+      const data = await deleteAccountUser(accountId, userId);
       if (data.status === "ok") {
         fetchUsers();
       } else {
@@ -83,12 +75,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const handleChangeRole = async (userId: string, newRole: string) => {
     if (!confirm(`确定要将 ${userId} 的角色修改为 ${newRole} 吗？`)) return;
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}/users/${userId}/role`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
-      const data = await res.json();
+      const data = await updateAccountUserRole(accountId, userId, newRole);
       if (data.status === "ok") {
         fetchUsers();
       } else {
@@ -102,11 +89,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const handleRegenerateKey = async (userId: string) => {
     if (!confirm(`确定要重新生成 ${userId} 的 User Key 吗？旧 Key 将立即失效！`)) return;
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}/users/${userId}/key`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
+      const data = await regenerateAccountUserKey(accountId, userId);
       if (data.status === "ok") {
         setModalKey(data.result.user_key);
       } else {

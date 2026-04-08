@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getAccounts, createAccount, deleteAccount } from "@/lib/api/openviking";
 
 interface Account {
   account_id: string;
@@ -20,8 +21,7 @@ export default function AccountsPage() {
   const fetchAccounts = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/proxy/admin/accounts");
-      const data = await res.json();
+      const data = await getAccounts();
       if (data.status === "ok") {
         setAccounts(data.result || []);
       }
@@ -39,15 +39,10 @@ export default function AccountsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/proxy/admin/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          account_id: newAccountId,
-          admin_user_id: newAdminId,
-        }),
+      const data = await createAccount({
+        account_id: newAccountId,
+        admin_user_id: newAdminId,
       });
-      const data = await res.json();
       if (data.status === "ok") {
         setCreatedKey(data.result.user_key);
         fetchAccounts();
@@ -64,10 +59,7 @@ export default function AccountsPage() {
   const handleDelete = async (accountId: string) => {
     if (!confirm(`确定要删除工作区 ${accountId} 吗？这会删除所有关联数据！`)) return;
     try {
-      const res = await fetch(`/api/proxy/admin/accounts/${accountId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
+      const data = await deleteAccount(accountId);
       if (data.status === "ok") {
         fetchAccounts();
       } else {

@@ -1,8 +1,22 @@
 import { NextRequest } from 'next/server'
+import { ProxyAgent } from 'undici'
 
-const TARGET_API_URL = 'http://127.0.0.1:1933/api/v1/'
+const TARGET_API_URL = process.env.OPENVIKING_API_URL || 'http://127.0.0.1:1933/api/v1/'
+// Using proxy if configured
+const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY
+const proxyAgent = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
+
+// Ensure TARGET_API_URL has correct format (e.g. ends with /api/v1/)
+let baseApiUrl = TARGET_API_URL;
+if (!baseApiUrl.endsWith('/')) {
+  baseApiUrl += '/';
+}
+if (!baseApiUrl.includes('api/v1')) {
+  baseApiUrl += 'api/v1/';
+}
 
 async function handleProxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  let targetUrl = ''
   try {
     const { path } = await params
     const pathname = path.join('/')
@@ -10,26 +24,21 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
     const queryString = searchParams ? `?${searchParams}` : ''
     
     // Construct the target URL
-    const targetUrl = `${TARGET_API_URL}${pathname}${queryString}`
+    targetUrl = `${baseApiUrl}${pathname}${queryString}`
 
     // Prepare headers, injecting the API key
     const headers = new Headers(req.headers)
     headers.delete('host') // Remove the host header to avoid conflicts
     headers.set('X-API-Key', process.env.OPENVIKING_ROOT_KEY || '')
 
-    // Read body as ArrayBuffer to support all content types
-    let body: ArrayBuffer | undefined = undefined
-    if (!['GET', 'HEAD'].includes(req.method)) {
-      body = await req.arrayBuffer()
-    }
-
     // Prepare options for the fetch call
-    const fetchOptions: RequestInit = {
+    const fetchOptions: RequestInit & { duplex?: string, dispatcher?: any } = {
       method: req.method,
       headers,
-      body,
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body,
       // Disable caching for the proxy
       cache: 'no-store',
+      duplex: 'half'
     }
 
     const response = await fetch(targetUrl, fetchOptions)
@@ -47,8 +56,8 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
       headers: responseHeaders,
     })
   } catch (error) {
-    console.error('Proxy error:', error)
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    console.error('Proxy error details: targetUrl =', targetUrl, 'error =', error)
+    return new Response(JSON.stringify({ error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })

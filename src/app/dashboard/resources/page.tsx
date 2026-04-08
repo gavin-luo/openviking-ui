@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { listDirectory, readFileContent, tempUploadResource, addResource } from "@/lib/api/openviking";
 
 interface FSEntry {
   name: string;
@@ -24,9 +25,7 @@ export default function ResourcesPage() {
   const fetchList = async (uri: string) => {
     setLoadingList(true);
     try {
-      const res = await fetch(`/api/proxy/fs/ls?uri=${encodeURIComponent(uri)}`);
-      if (!res.ok) throw new Error("Failed to fetch directory");
-      const data = await res.json();
+      const data = await listDirectory(uri);
       if (data.status === "ok") {
         setEntries(data.result || []);
       }
@@ -47,9 +46,7 @@ export default function ResourcesPage() {
     setLoadingContent(true);
     setFileContent(null);
     try {
-      const res = await fetch(`/api/proxy/content/read?uri=${encodeURIComponent(file.uri)}`);
-      if (!res.ok) throw new Error("Failed to read file");
-      const data = await res.json();
+      const data = await readFileContent(file.uri);
       if (data.status === "ok") {
         setFileContent(data.result);
       } else {
@@ -101,34 +98,18 @@ export default function ResourcesPage() {
     setUploading(true);
     try {
       // 1. Temp upload
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const tempRes = await fetch("/api/proxy/resources/temp_upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!tempRes.ok) throw new Error("Temp upload failed");
-      const tempData = await tempRes.json();
+      const tempData = await tempUploadResource(file);
       const tempFileId = tempData.result?.temp_file_id;
 
       if (!tempFileId) throw new Error("No temp_file_id returned");
 
       // 2. Add resource
-      const addRes = await fetch("/api/proxy/resources", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          temp_file_id: tempFileId,
-          target: currentUri,
-          wait: true,
-        }),
+      await addResource({
+        temp_file_id: tempFileId,
+        target: currentUri,
+        wait: true,
       });
 
-      if (!addRes.ok) throw new Error("Failed to add resource");
-      
       // Refresh list
       fetchList(currentUri);
     } catch (err) {

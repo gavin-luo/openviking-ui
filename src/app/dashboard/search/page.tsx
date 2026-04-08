@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { searchFind } from "@/lib/api/openviking";
 
 interface SearchResult {
   uri: string;
@@ -22,22 +23,8 @@ export default function SearchPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/proxy/search/find", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: query.trim(),
-          limit: 10,
-        }),
-      });
+      const data = await searchFind(query.trim(), 10);
 
-      if (!res.ok) {
-        throw new Error(`Error: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
       // Assume response is either an array of results or has a `resources` or `data` field
       const items = Array.isArray(data) ? data : (data.resources || data.data || data.results || []);
       setResults(items);

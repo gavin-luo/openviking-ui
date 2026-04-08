@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getSystemObserver } from "@/lib/api/openviking";
 
 export default function MonitorPage() {
-  const [data, setData] = useState<unknown>(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,11 +12,7 @@ export default function MonitorPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/proxy/observer/system");
-      if (!res.ok) {
-        throw new Error(`Error: ${res.status} ${res.statusText}`);
-      }
-      const json = await res.json();
+      const json = await getSystemObserver();
       setData(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch system status");
@@ -42,7 +39,7 @@ export default function MonitorPage() {
 
   const renderStatusBadge = (status: unknown) => {
     return (
-      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(status)}`}>
+      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(String(status))}`}>
         {String(status)}
       </span>
     );
@@ -76,7 +73,7 @@ export default function MonitorPage() {
         </div>
       )}
 
-      {data && (
+      {!!data && (
         <div className="grid grid-cols-1 gap-6">
           {/* 整体状态概览 */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
@@ -85,11 +82,11 @@ export default function MonitorPage() {
                 <h3 className="text-lg leading-6 font-medium text-gray-900">系统整体状态</h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">当前系统及各模块健康指标概览</p>
               </div>
-              {(data as Record<string, unknown>).status && renderStatusBadge((data as Record<string, unknown>).status)}
+              {data?.status && renderStatusBadge(data.status)}
             </div>
             <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
               <dl className="sm:divide-y sm:divide-gray-200">
-                {Object.entries(data as Record<string, unknown>).map(([key, value]) => {
+                {Object.entries(data || {}).map(([key, value]) => {
                   if (key === "components" || typeof value === "object") return null;
                   return (
                     <div key={key} className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -105,14 +102,14 @@ export default function MonitorPage() {
           </div>
 
           {/* 组件状态列表 */}
-          {((data as Record<string, unknown>).components || (data as Record<string, unknown>).services || (data as Record<string, unknown>).dependencies) && (
+          {(data?.components || data?.services || data?.dependencies) && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">组件健康状态</h3>
               </div>
               <div className="border-t border-gray-200">
                 <ul className="divide-y divide-gray-200">
-                  {Object.entries((data as Record<string, unknown>).components || (data as Record<string, unknown>).services || (data as Record<string, unknown>).dependencies || {}).map(([name, info]: [string, Record<string, unknown>]) => (
+                  {Object.entries(data?.components || data?.services || data?.dependencies || {}).map(([name, info]: [string, any]) => (
                     <li key={name} className="px-4 py-4 sm:px-6 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-900">{name}</span>
