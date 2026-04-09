@@ -44,3 +44,4 @@ test-results/
 debug.log
 test-out.log
 e2e/test-e2e-*.txt
+test-*.ts
