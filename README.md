@@ -8,7 +8,7 @@ OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/O
 
 ## ✨ 核心特性
 
-* **资源中心浏览器**：提供目录层级可视化管理，支持资源读取（支持获取 L0、L1、L2 的抽象与原文），并实现了两段式（`temp_upload`）安全的文件上传功能。
+* **资源中心浏览器**：提供目录层级可视化管理，支持资源读取（支持获取 L0、L1、L2 的抽象与原文），并实现了两段式安全的文件上传功能。
 * **系统与检索面板**：
   * 系统仪表盘支持实时读取 OpenViking 系统健康状态及组件指标 (vikingdb, vlm, queue)。
   * 提供检索测试台，可对已有的资源内容快速执行语义匹配（`search/find`）。
