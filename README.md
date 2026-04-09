@@ -2,14 +2,12 @@
 
 OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/OpenViking) 官方 HTTP API 打造的 Web 可视化管理后台。
 
-该系统通过自建的 BFF (Backend-For-Frontend) 代理层安全调用 OpenViking 接口，在前端隐藏了关键的 `root_api_key`。它支持管理 OpenViking 多租户体系、管理与操作知识资源库，并提供系统的实时监控和高级搜索能力。（注：统一身份认证 Supabase Auth 待集成）。
+该系统通过自建的 BFF (Backend-For-Frontend) 代理层安全调用 OpenViking 接口，在前端隐藏了关键的 `root_api_key`。它支持管理 OpenViking 多租户体系、管理与操作知识资源库，并提供系统的实时监控和高级搜索能力。
 
 ---
 
 ## ✨ 核心特性
 
-* **平台安全登录**：通过 Supabase 提供安全、可扩展的应用级身份认证。
-* **多租户与密钥管理**：基于 Admin API 实现工作区 (Account) 及用户 (User) 的增删改查，并支持重置生成和展示 User Key。
 * **资源中心浏览器**：提供目录层级可视化管理，支持资源读取（支持获取 L0、L1、L2 的抽象与原文），并实现了两段式（`temp_upload`）安全的文件上传功能。
 * **系统与检索面板**：
   * 系统仪表盘支持实时读取 OpenViking 系统健康状态及组件指标 (vikingdb, vlm, queue)。
@@ -22,7 +20,6 @@ OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/O
 
 * **核心框架**: [Next.js](https://nextjs.org/) (App Router), React 19
 * **UI & 样式**: [Tailwind CSS v4](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/)
-* **认证**: [Supabase](https://supabase.com/)
 * **测试**: Vitest (单元测试), Playwright (E2E测试)
 
 ---
@@ -33,19 +30,8 @@ OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/O
 
 - **Node.js**: `>= 18.17.0`
 - **OpenViking Server**: 确保本地或远端已运行 OpenViking Server。只需在配置中开启 API Key 认证 (`auth_mode = "api_key"`) 并配置好 `root_api_key` 即可。
-- **Supabase 项目**: 在 [Supabase](https://supabase.com/) 创建一个项目，并启用基础的 Email/Password 认证机制。
 
-### 2. 克隆项目与安装依赖
-
-进入项目目录并安装相关依赖：
-
-```bash
-git clone https://github.com/volcengine/OpenViking.git
-cd OpenViking/admin-frontend
-npm install
-```
-
-### 3. 配置环境变量
+### 2. 配置环境变量
 
 将项目根目录的 `.env.example` 复制为 `.env.local`：
 
@@ -62,25 +48,12 @@ cp .env.example .env.local
 OPENVIKING_ROOT_KEY=your_openviking_root_api_key
 OPENVIKING_API_URL=http://your_openviking_api_ip:port
 
-# ==========================================
-# Supabase 认证配置 (必填)
-# ==========================================
-# 用于页面登录及应用认证控制
-NEXT_PUBLIC_SUPABASE_URL=http://your_supabase_ip:port
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# ==========================================
-# 网络代理设置 (可选)
-# ==========================================
-# HTTP_PROXY=http://127.0.0.1:7890
-# HTTPS_PROXY=http://127.0.0.1:7890
-# NO_PROXY=192.168.x.x,127.0.0.1,localhost
 ```
 
 > **⚠️ 环境变量配置注意事项：**
 > **Node.js 代理问题**：如果在本地配置了全局代理 (`HTTP_PROXY`)，**务必配置 `NO_PROXY`** 过滤掉内网和本地 IP（例如 OpenViking API 地址），否则会影响 Node.js 原生 fetch 导致请求报错。
 
-### 4. 运行开发服务
+### 3. 运行开发服务
 
 启动本地开发服务器：
 
@@ -89,7 +62,7 @@ npm run dev
 ```
 
 启动成功后，打开浏览器访问 [http://localhost:3000](http://localhost:3000)。
-如果是首次访问，会自动重定向到 `/login` 页面；使用你在 Supabase 配置的账号登录成功后，即可进入完整的 `/dashboard` 管理视图。
+默认会自动重定向到 `/dashboard/accounts`。
 
 ---
 
@@ -144,9 +117,9 @@ admin-frontend/
 │   │   │   ├── monitor/          # 监控与仪表盘
 │   │   │   ├── resources/        # 资源中心浏览器与上传
 │   │   │   └── search/           # 检索与调试测试台
-│   │   ├── login/                # Supabase 认证与登录界面
+│   │   ├── login/                # 预留登录页面
 │   │   └── layout.tsx & page.tsx
-│   └── middleware.ts             # 路由中间件：校验用户登录态并实施页面保护
+│   └── middleware.ts             # 路由中间件
 ├── tailwind.config.ts            # TailwindCSS 配置
 ├── next.config.ts                # Next.js 基础配置
 └── package.json                  # 项目依赖及脚本
