@@ -24,11 +24,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function initAdmin() {
-  console.log(`[1/2] 正在尝试创建管理员账号: admin@zoesoft.com.cn`);
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'adminadmin';
+  
+  console.log(`[1/2] 正在尝试创建管理员账号: ${adminEmail}`);
   
   const { data, error } = await supabase.auth.signUp({
-    email: 'admin@zoesoft.com.cn',
-    password: 'adminadmin',
+    email: adminEmail,
+    password: adminPassword,
   });
 
   if (error) {
