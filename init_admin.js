@@ -54,4 +54,5 @@ async function initAdmin() {
   }
 }
 
-initAdmin();
+// TODO: 未来集成 Supabase 后，可取消下面注释并运行此脚本来初始化管理员
+// initAdmin();
