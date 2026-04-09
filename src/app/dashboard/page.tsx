@@ -105,10 +105,10 @@ export default function Dashboard() {
       )}
 
       {!!data && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
           
           {/* 队列状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col break-inside-avoid mb-6">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
               <h3 className="text-lg leading-6 font-medium text-gray-900">队列状态</h3>
               {renderBadge(
@@ -171,8 +171,47 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* VikingDB 状态 */}
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col break-inside-avoid mb-6">
+            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">向量数据库 (VikingDB)</h3>
+              {renderBadge(
+                data?.components?.vikingdb?.is_healthy ? '正常' : '异常', 
+                getStatusColor(data?.components?.vikingdb?.is_healthy)
+              )}
+            </div>
+            <div className="p-4 flex-1 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-bold text-gray-700 mb-4 text-center">Context 集合</h4>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">索引数量</p>
+                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Index Count'] || '0'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">向量数量</p>
+                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Vector Count'] || '0'}</p>
+                  </div>
+                </div>
+              </div>
+              {vikingdbData.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-500 mb-2">所有集合状态</p>
+                  <ul className="space-y-2">
+                    {vikingdbData.filter(d => d.Collection !== 'TOTAL').map((db, idx) => (
+                      <li key={idx} className="flex justify-between items-center text-sm">
+                        <span className="font-medium text-gray-700">{db.Collection}</span>
+                        {renderBadge(db.Status || '未知', getStatusColor(db.Status))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 检索状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col break-inside-avoid mb-6">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
               <h3 className="text-lg leading-6 font-medium text-gray-900">检索状态 (Retrieval)</h3>
               {renderBadge(
@@ -252,7 +291,7 @@ export default function Dashboard() {
           </div>
 
           {/* VLM 状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col max-h-[600px]">
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col max-h-[600px] break-inside-avoid mb-6">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg leading-6 font-medium text-gray-900">模型监控</h3>
               {renderBadge(
@@ -295,45 +334,6 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* VikingDB 状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">向量数据库 (VikingDB)</h3>
-              {renderBadge(
-                data?.components?.vikingdb?.is_healthy ? '正常' : '异常', 
-                getStatusColor(data?.components?.vikingdb?.is_healthy)
-              )}
-            </div>
-            <div className="p-4 flex-1 space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-bold text-gray-700 mb-4 text-center">Context 集合</h4>
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">索引数量</p>
-                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Index Count'] || '0'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">向量数量</p>
-                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Vector Count'] || '0'}</p>
-                  </div>
-                </div>
-              </div>
-              {vikingdbData.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs text-gray-500 mb-2">所有集合状态</p>
-                  <ul className="space-y-2">
-                    {vikingdbData.filter(d => d.Collection !== 'TOTAL').map((db, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-sm">
-                        <span className="font-medium text-gray-700">{db.Collection}</span>
-                        {renderBadge(db.Status || '未知', getStatusColor(db.Status))}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           </div>
 
