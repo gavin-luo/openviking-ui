@@ -13,6 +13,8 @@ import {
   getAccountUsers
 } from "@/lib/api/openviking";
 
+import JSZip from "jszip";
+
 interface FSEntry {
   name: string;
   size: number;
@@ -224,6 +226,8 @@ export default function ResourcesPage() {
 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
@@ -401,11 +405,73 @@ export default function ResourcesPage() {
     fileInputRef.current?.click();
   };
 
+  const handleUploadFolderClick = () => {
+    folderInputRef.current?.click();
+  };
+
+  const handleFolderChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setUploadStatus("正在压缩文件夹...");
+    try {
+      const zip = new JSZip();
+      
+      let folderName = "folder";
+      if (files[0].webkitRelativePath) {
+        folderName = files[0].webkitRelativePath.split('/')[0] || "folder";
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const path = file.webkitRelativePath || file.name;
+        zip.file(path, file);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const zipFile = new File([zipBlob], `${folderName}.zip`, { type: "application/zip" });
+
+      setUploadStatus("正在上传压缩包...");
+      const tempData = await tempUploadResource(zipFile, tenantHeaders);
+      const tempFileId = tempData.result?.temp_file_id;
+
+      if (!tempFileId) throw new Error("No temp_file_id returned");
+
+      let targetUri = currentUri;
+      if (!targetUri.endsWith('/')) {
+        targetUri += '/';
+      }
+
+      setUploadStatus("正在导入资源...");
+      await addResource({
+        temp_file_id: tempFileId,
+        target: targetUri,
+        wait: false,
+      }, tenantHeaders);
+
+      if (!isSearching) {
+        fetchRootList();
+      }
+      setIsUploadModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Upload folder failed: " + (err as Error).message);
+    } finally {
+      setUploading(false);
+      setUploadStatus(null);
+      if (folderInputRef.current) {
+        folderInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
+    setUploadStatus("正在上传文件...");
     try {
       const tempData = await tempUploadResource(file, tenantHeaders);
       const tempFileId = tempData.result?.temp_file_id;

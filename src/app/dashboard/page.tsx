@@ -171,92 +171,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* VikingDB 状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">向量数据库 (VikingDB)</h3>
-              {renderBadge(
-                data?.components?.vikingdb?.is_healthy ? '正常' : '异常', 
-                getStatusColor(data?.components?.vikingdb?.is_healthy)
-              )}
-            </div>
-            <div className="p-4 flex-1 space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-bold text-gray-700 mb-4 text-center">Context 集合</h4>
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">索引数量</p>
-                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Index Count'] || '0'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">向量数量</p>
-                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Vector Count'] || '0'}</p>
-                  </div>
-                </div>
-              </div>
-              {vikingdbData.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs text-gray-500 mb-2">所有集合状态</p>
-                  <ul className="space-y-2">
-                    {vikingdbData.filter(d => d.Collection !== 'TOTAL').map((db, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-sm">
-                        <span className="font-medium text-gray-700">{db.Collection}</span>
-                        {renderBadge(db.Status || '未知', getStatusColor(db.Status))}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* VLM 状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col max-h-[600px]">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50 shrink-0">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">模型监控</h3>
-              {renderBadge(
-                (data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy) ? '正常' : '异常', 
-                getStatusColor(data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy)
-              )}
-            </div>
-            <div className="p-4 flex-1 overflow-y-auto">
-              <div className="space-y-4">
-                {vlmData.filter(m => m.Model !== 'TOTAL').map((model, idx) => (
-                  <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-sm font-bold text-indigo-700 break-all">{model.Model}</h4>
-                      <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border shadow-sm ml-2 shrink-0">{model.Provider}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center mt-3">
-                      <div className="bg-white p-1 rounded border border-gray-100">
-                        <p className="text-[10px] text-gray-500">提示词</p>
-                        <p className="text-sm font-semibold text-gray-800">{model.Prompt || '0'}</p>
-                      </div>
-                      <div className="bg-white p-1 rounded border border-gray-100">
-                        <p className="text-[10px] text-gray-500">补全</p>
-                        <p className="text-sm font-semibold text-gray-800">{model.Completion || '0'}</p>
-                      </div>
-                      <div className="bg-indigo-50 p-1 rounded border border-indigo-100">
-                        <p className="text-[10px] text-indigo-500">总消耗</p>
-                        <p className="text-sm font-bold text-indigo-700">{model.Total || '0'}</p>
-                      </div>
-                    </div>
-                    {model['Last Updated'] && (
-                      <div className="mt-2 text-right">
-                        <p className="text-[10px] text-gray-400">最后更新: {model['Last Updated']}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {vlmData.length === 0 && (
-                  <div className="text-center text-gray-500 py-8 text-sm">
-                    暂无模型调用数据
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* 检索状态 */}
           <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
             <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
@@ -332,6 +246,92 @@ export default function Dashboard() {
               {retrievalMetrics.length === 0 && retrievalContext.length === 0 && (
                 <div className="text-center text-gray-500 py-8 text-sm">
                   暂无检索数据
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* VLM 状态 */}
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col max-h-[600px]">
+            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">模型监控</h3>
+              {renderBadge(
+                (data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy) ? '正常' : '异常', 
+                getStatusColor(data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy)
+              )}
+            </div>
+            <div className="p-4 flex-1 overflow-y-auto">
+              <div className="space-y-4">
+                {vlmData.filter(m => m.Model !== 'TOTAL').map((model, idx) => (
+                  <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-sm font-bold text-indigo-700 break-all">{model.Model}</h4>
+                      <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border shadow-sm ml-2 shrink-0">{model.Provider}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center mt-3">
+                      <div className="bg-white p-1 rounded border border-gray-100">
+                        <p className="text-[10px] text-gray-500">提示词</p>
+                        <p className="text-sm font-semibold text-gray-800">{model.Prompt || '0'}</p>
+                      </div>
+                      <div className="bg-white p-1 rounded border border-gray-100">
+                        <p className="text-[10px] text-gray-500">补全</p>
+                        <p className="text-sm font-semibold text-gray-800">{model.Completion || '0'}</p>
+                      </div>
+                      <div className="bg-indigo-50 p-1 rounded border border-indigo-100">
+                        <p className="text-[10px] text-indigo-500">总消耗</p>
+                        <p className="text-sm font-bold text-indigo-700">{model.Total || '0'}</p>
+                      </div>
+                    </div>
+                    {model['Last Updated'] && (
+                      <div className="mt-2 text-right">
+                        <p className="text-[10px] text-gray-400">最后更新: {model['Last Updated']}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {vlmData.length === 0 && (
+                  <div className="text-center text-gray-500 py-8 text-sm">
+                    暂无模型调用数据
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* VikingDB 状态 */}
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
+            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">向量数据库 (VikingDB)</h3>
+              {renderBadge(
+                data?.components?.vikingdb?.is_healthy ? '正常' : '异常', 
+                getStatusColor(data?.components?.vikingdb?.is_healthy)
+              )}
+            </div>
+            <div className="p-4 flex-1 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-bold text-gray-700 mb-4 text-center">Context 集合</h4>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">索引数量</p>
+                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Index Count'] || '0'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">向量数量</p>
+                    <p className="text-2xl font-bold text-gray-800">{dbContext?.['Vector Count'] || '0'}</p>
+                  </div>
+                </div>
+              </div>
+              {vikingdbData.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-500 mb-2">所有集合状态</p>
+                  <ul className="space-y-2">
+                    {vikingdbData.filter(d => d.Collection !== 'TOTAL').map((db, idx) => (
+                      <li key={idx} className="flex justify-between items-center text-sm">
+                        <span className="font-medium text-gray-700">{db.Collection}</span>
+                        {renderBadge(db.Status || '未知', getStatusColor(db.Status))}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
