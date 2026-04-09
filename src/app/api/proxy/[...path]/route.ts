@@ -41,7 +41,7 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
         headers.set('X-API-Key', testApiKey)
         headers.delete('x-test-api-key')
       } else {
-        headers.set('X-API-Key', process.env.OPENVIKING_KEY || process.env.OPENVIKING_ROOT_KEY || '')
+        headers.set('X-API-Key', process.env.OPENVIKING_ROOT_KEY || '')
       }
 
       // If using root key for tenant APIs, we must provide account and user headers

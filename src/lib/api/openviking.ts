@@ -21,18 +21,13 @@ const getBaseUrl = () => {
   return '/api/proxy/';
 };
 
-const getHeaders = (customHeaders?: HeadersInit, useRootKey: boolean = false) => {
+const getHeaders = (customHeaders?: HeadersInit) => {
   const headers: Record<string, string> = {
     ...((customHeaders as Record<string, string>) || {})
   };
   
   if (isServer) {
-    if (useRootKey && process.env.OPENVIKING_ROOT_KEY) {
-      headers['X-API-Key'] = process.env.OPENVIKING_ROOT_KEY;
-    } else if (!useRootKey && process.env.OPENVIKING_KEY) {
-      headers['X-API-Key'] = process.env.OPENVIKING_KEY;
-    } else if (process.env.OPENVIKING_ROOT_KEY) {
-      // Fallback
+    if (process.env.OPENVIKING_ROOT_KEY) {
       headers['X-API-Key'] = process.env.OPENVIKING_ROOT_KEY;
     }
   }
@@ -43,13 +38,13 @@ const getHeaders = (customHeaders?: HeadersInit, useRootKey: boolean = false) =>
 /**
  * Helper to handle fetch responses and throw errors for non-ok status
  */
-async function fetchApi(url: string, options: RequestInit = {}, useRootKey: boolean = false) {
+async function fetchApi(url: string, options: RequestInit = {}) {
   const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
   const target = `${getBaseUrl()}${cleanUrl}`;
   
   const res = await fetch(target, {
     ...options,
-    headers: getHeaders(options.headers, useRootKey)
+    headers: getHeaders(options.headers)
   });
   
   if (!res.ok) {
@@ -64,7 +59,7 @@ async function fetchApi(url: string, options: RequestInit = {}, useRootKey: bool
 // ==========================================
 
 export async function getAccounts() {
-  return fetchApi('/admin/accounts', {}, true);
+  return fetchApi('/admin/accounts');
 }
 
 export async function createAccount(data: { account_id: string; admin_user_id: string }) {
@@ -72,17 +67,17 @@ export async function createAccount(data: { account_id: string; admin_user_id: s
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  }, true);
+  });
 }
 
 export async function deleteAccount(accountId: string) {
   return fetchApi(`/admin/accounts/${accountId}`, {
     method: 'DELETE',
-  }, true);
+  });
 }
 
 export async function getAccountUsers(accountId: string) {
-  return fetchApi(`/admin/accounts/${accountId}/users`, {}, true);
+  return fetchApi(`/admin/accounts/${accountId}/users`);
 }
 
 export async function createAccountUser(accountId: string, data: { user_id: string; role?: string; metadata?: any }) {
@@ -90,13 +85,13 @@ export async function createAccountUser(accountId: string, data: { user_id: stri
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  }, true);
+  });
 }
 
 export async function deleteAccountUser(accountId: string, userId: string) {
   return fetchApi(`/admin/accounts/${accountId}/users/${userId}`, {
     method: 'DELETE',
-  }, true);
+  });
 }
 
 export async function updateAccountUserRole(accountId: string, userId: string, role: string) {
@@ -104,13 +99,13 @@ export async function updateAccountUserRole(accountId: string, userId: string, r
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role }),
-  }, true);
+  });
 }
 
 export async function regenerateAccountUserKey(accountId: string, userId: string) {
   return fetchApi(`/admin/accounts/${accountId}/users/${userId}/key`, {
     method: 'POST',
-  }, true);
+  });
 }
 
 // ==========================================
@@ -191,5 +186,5 @@ export async function searchSearch(query: string, limit: number = 10, sessionId?
 // ==========================================
 
 export async function getSystemObserver() {
-  return fetchApi('/observer/system', {}, true);
+  return fetchApi('/observer/system');
 }
