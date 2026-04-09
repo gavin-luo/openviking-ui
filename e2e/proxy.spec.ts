@@ -1,9 +1,26 @@
 import { test, expect } from '@playwright/test';
+import path from 'path';
+import fs from 'fs';
+
+let authData: any;
+
+test.beforeAll(() => {
+  const authFilePath = path.join(__dirname, '.test-auth.json');
+  if (fs.existsSync(authFilePath)) {
+    authData = JSON.parse(fs.readFileSync(authFilePath, 'utf-8'));
+  }
+});
 
 test.describe('Proxy API Functionality', () => {
   test('should fetch accounts list successfully via proxy', async ({ request }) => {
     // This directly calls the Next.js API route to verify the proxy is working
-    const response = await request.get('/api/proxy/admin/accounts');
+    const headers = authData ? {
+      'x-test-api-key': authData.apiKey,
+      'x-test-account': authData.accountId,
+      'x-test-user': authData.userId,
+    } : undefined;
+    
+    const response = await request.get('/api/proxy/admin/accounts', { headers });
     
     // Assert that the response is successful (not 500)
     expect(response.status()).toBe(200);
@@ -22,7 +39,13 @@ test.describe('Proxy API Functionality', () => {
   });
 
   test('should fetch system observer data successfully via proxy', async ({ request }) => {
-    const response = await request.get('/api/proxy/observer/system');
+    const headers = authData ? {
+      'x-test-api-key': authData.apiKey,
+      'x-test-account': authData.accountId,
+      'x-test-user': authData.userId,
+    } : undefined;
+    
+    const response = await request.get('/api/proxy/observer/system', { headers });
     
     expect(response.status()).toBe(200);
     const body = await response.json();
