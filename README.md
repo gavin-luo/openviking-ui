@@ -31,7 +31,15 @@ OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/O
 - **Node.js**: `>= 18.17.0`
 - **OpenViking Server**: 确保本地或远端已运行 OpenViking Server。只需在配置中开启 API Key 认证 (`auth_mode = "api_key"`) 并配置好 `root_api_key` 即可。
 
-### 2. 配置环境变量
+### 2. 安装依赖
+
+首次启动项目前，先安装依赖：
+
+```bash
+npm install
+```
+
+### 3. 配置环境变量
 
 将项目根目录的 `.env.example` 复制为 `.env.local`：
 
@@ -53,7 +61,7 @@ OPENVIKING_API_URL=http://your_openviking_api_ip:port
 > **⚠️ 环境变量配置注意事项：**
 > **Node.js 代理问题**：如果在本地配置了全局代理 (`HTTP_PROXY`)，**务必配置 `NO_PROXY`** 过滤掉内网和本地 IP（例如 OpenViking API 地址），否则会影响 Node.js 原生 fetch 导致请求报错。
 
-### 3. 运行开发服务
+### 4. 运行开发服务
 
 启动本地开发服务器：
 
@@ -108,7 +116,7 @@ npm run start
 ## 📁 项目结构说明
 
 ```text
-admin-frontend/
+openviking-ui/
 ├── src/
 │   ├── app/
 │   │   ├── api/proxy/[...path]/  # BFF 层：负责透明转发所有 API 请求并注入 OPENVIKING_ROOT_KEY
