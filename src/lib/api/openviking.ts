@@ -21,13 +21,20 @@ const getBaseUrl = () => {
   return '/api/proxy/';
 };
 
-const getHeaders = (customHeaders?: HeadersInit) => {
+const getHeaders = (customHeaders?: HeadersInit, useRootKey: boolean = false) => {
   const headers: Record<string, string> = {
     ...((customHeaders as Record<string, string>) || {})
   };
   
-  if (isServer && process.env.OPENVIKING_ROOT_KEY) {
-    headers['X-API-Key'] = process.env.OPENVIKING_ROOT_KEY;
+  if (isServer) {
+    if (useRootKey && process.env.OPENVIKING_ROOT_KEY) {
+      headers['X-API-Key'] = process.env.OPENVIKING_ROOT_KEY;
+    } else if (!useRootKey && process.env.OPENVIKING_KEY) {
+      headers['X-API-Key'] = process.env.OPENVIKING_KEY;
+    } else if (process.env.OPENVIKING_ROOT_KEY) {
+      // Fallback
+      headers['X-API-Key'] = process.env.OPENVIKING_ROOT_KEY;
+    }
   }
   
   return headers;
@@ -36,13 +43,13 @@ const getHeaders = (customHeaders?: HeadersInit) => {
 /**
  * Helper to handle fetch responses and throw errors for non-ok status
  */
-async function fetchApi(url: string, options: RequestInit = {}) {
+async function fetchApi(url: string, options: RequestInit = {}, useRootKey: boolean = false) {
   const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
   const target = `${getBaseUrl()}${cleanUrl}`;
   
   const res = await fetch(target, {
     ...options,
-    headers: getHeaders(options.headers)
+    headers: getHeaders(options.headers, useRootKey)
   });
   
   if (!res.ok) {
@@ -57,7 +64,7 @@ async function fetchApi(url: string, options: RequestInit = {}) {
 // ==========================================
 
 export async function getAccounts() {
-  return fetchApi('/admin/accounts');
+  return fetchApi('/admin/accounts', {}, true);
 }
 
 export async function createAccount(data: { account_id: string; admin_user_id: string }) {
@@ -65,17 +72,17 @@ export async function createAccount(data: { account_id: string; admin_user_id: s
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  });
+  }, true);
 }
 
 export async function deleteAccount(accountId: string) {
   return fetchApi(`/admin/accounts/${accountId}`, {
     method: 'DELETE',
-  });
+  }, true);
 }
 
 export async function getAccountUsers(accountId: string) {
-  return fetchApi(`/admin/accounts/${accountId}/users`);
+  return fetchApi(`/admin/accounts/${accountId}/users`, {}, true);
 }
 
 export async function createAccountUser(accountId: string, data: { user_id: string; role?: string; metadata?: any }) {
@@ -83,13 +90,13 @@ export async function createAccountUser(accountId: string, data: { user_id: stri
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  });
+  }, true);
 }
 
 export async function deleteAccountUser(accountId: string, userId: string) {
   return fetchApi(`/admin/accounts/${accountId}/users/${userId}`, {
     method: 'DELETE',
-  });
+  }, true);
 }
 
 export async function updateAccountUserRole(accountId: string, userId: string, role: string) {
@@ -97,25 +104,42 @@ export async function updateAccountUserRole(accountId: string, userId: string, r
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role }),
-  });
+  }, true);
 }
 
 export async function regenerateAccountUserKey(accountId: string, userId: string) {
   return fetchApi(`/admin/accounts/${accountId}/users/${userId}/key`, {
     method: 'POST',
-  });
+  }, true);
 }
 
 // ==========================================
 // FileSystem & Resources API (资源与文件系统)
 // ==========================================
 
-export async function listDirectory(uri: string, headers?: Record<string, string>) {
-  return fetchApi(`/fs/ls?uri=${encodeURIComponent(uri)}`, { headers });
+export async function listDirectory(uri: string, options?: { simple?: boolean; recursive?: boolean; output?: string; abs_limit?: number; show_all_hidden?: boolean; node_limit?: number }, headers?: Record<string, string>) {
+  const queryParams = new URLSearchParams({ uri });
+  if (options) {
+    if (options.simple !== undefined) queryParams.append('simple', String(options.simple));
+    if (options.recursive !== undefined) queryParams.append('recursive', String(options.recursive));
+    if (options.output !== undefined) queryParams.append('output', options.output);
+    if (options.abs_limit !== undefined) queryParams.append('abs_limit', String(options.abs_limit));
+    if (options.show_all_hidden !== undefined) queryParams.append('show_all_hidden', String(options.show_all_hidden));
+    if (options.node_limit !== undefined) queryParams.append('node_limit', String(options.node_limit));
+  }
+  return fetchApi(`/fs/ls?${queryParams.toString()}`, { headers });
 }
 
 export async function readFileContent(uri: string, headers?: Record<string, string>) {
   return fetchApi(`/content/read?uri=${encodeURIComponent(uri)}`, { headers });
+}
+
+export async function getContentOverview(uri: string, headers?: Record<string, string>) {
+  return fetchApi(`/content/overview?uri=${encodeURIComponent(uri)}`, { headers });
+}
+
+export async function getContentAbstract(uri: string, headers?: Record<string, string>) {
+  return fetchApi(`/content/abstract?uri=${encodeURIComponent(uri)}`, { headers });
 }
 
 export async function tempUploadResource(file: File, headers?: Record<string, string>) {
@@ -129,10 +153,16 @@ export async function tempUploadResource(file: File, headers?: Record<string, st
 }
 
 export async function addResource(data: { temp_file_id: string; target: string; wait?: boolean }, headers?: Record<string, string>) {
+  // The server API uses 'to' instead of 'target' in the request body
+  const payload = {
+    temp_file_id: data.temp_file_id,
+    to: data.target,
+    wait: data.wait,
+  };
   return fetchApi('/resources', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -140,11 +170,19 @@ export async function addResource(data: { temp_file_id: string; target: string; 
 // Search API (检索)
 // ==========================================
 
-export async function searchFind(query: string, limit: number = 10, headers?: Record<string, string>) {
+export async function searchFind(query: string, limit: number = 10, targetUri?: string, headers?: Record<string, string>) {
   return fetchApi('/search/find', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify({ query, limit }),
+    body: JSON.stringify({ query, limit, target_uri: targetUri }),
+  });
+}
+
+export async function searchSearch(query: string, limit: number = 10, sessionId?: string, targetUri?: string, headers?: Record<string, string>) {
+  return fetchApi('/search/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ query, limit, session_id: sessionId, target_uri: targetUri }),
   });
 }
 
@@ -153,5 +191,5 @@ export async function searchFind(query: string, limit: number = 10, headers?: Re
 // ==========================================
 
 export async function getSystemObserver() {
-  return fetchApi('/observer/system');
+  return fetchApi('/observer/system', {}, true);
 }

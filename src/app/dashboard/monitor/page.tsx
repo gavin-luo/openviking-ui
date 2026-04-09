@@ -2,6 +2,110 @@
 
 import { useEffect, useState } from "react";
 import { getSystemObserver } from "@/lib/api/openviking";
+import { parseObserverTable } from "@/lib/utils/observer";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+const isObserverTable = (str: unknown) => {
+  if (typeof str !== 'string') return false;
+  const data = parseObserverTable(str);
+  return data && data.length > 0;
+};
+
+const isMarkdownString = (str: unknown) => {
+  if (typeof str !== 'string') return false;
+  if (isObserverTable(str)) return false;
+  // 检测常见的 Markdown 语法：标题、加粗、代码块、链接、列表、表格
+  const markdownRegex = /(^#+\s)|(\*\*.*?\*\*)|(`{1,3}.*?`{1,3})|(\[.*?\]\(.*?\))|(^\s*[-*+]\s)|(^\s*\d+\.\s)|(\|\s*-+\s*\|)/m;
+  return markdownRegex.test(str);
+};
+
+const isMultilineText = (str: unknown) => {
+  return typeof str === 'string' && str.includes('\n');
+};
+
+const translateKey = (key: string) => {
+  const dict: Record<string, string> = {
+    is_healthy: '健康状态',
+    errors: '错误信息',
+    components: '系统组件',
+    queue: '队列',
+    vlm: '视觉语言模型',
+    vikingdb: 'VikingDB',
+    name: '名称',
+    status: '状态',
+    message: '信息',
+    latency: '延迟',
+    initialized: '初始化状态',
+    user: '当前用户',
+  };
+  return dict[key.toLowerCase()] || key;
+};
+
+const translateValue = (val: string) => {
+  const dict: Record<string, string> = {
+    'Queue': '队列',
+    'Pending': '待处理',
+    'In Progress': '处理中',
+    'Processed': '已完成',
+    'Errors': '错误数',
+    'Total': '总计',
+    'Collection': '集合',
+    'Index Count': '索引数量',
+    'Vector Count': '向量数量',
+    'Status': '状态',
+    'Model': '模型',
+    'Provider': '提供商',
+    'Prompt': '提示词',
+    'Completion': '补全',
+    'Last Updated': '最后更新时间',
+    'Embedding': '嵌入向量',
+    'Semantic': '语义处理',
+    'TOTAL': '总计',
+    'OK': '正常'
+  };
+  return dict[val] || val;
+};
+
+const StatusTable = ({ statusStr }: { statusStr: string }) => {
+  const data = parseObserverTable(statusStr);
+  if (!data || data.length === 0) {
+    return (
+      <pre className="text-sm text-gray-700 font-mono whitespace-pre-wrap">
+        {statusStr}
+      </pre>
+    );
+  }
+
+  const headers = Object.keys(data[0]);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-md">
+        <thead className="bg-gray-50">
+          <tr>
+            {headers.map(h => (
+              <th key={h} className="px-4 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {translateValue(h)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {data.map((row, i) => (
+            <tr key={i}>
+              {headers.map(h => (
+                <td key={h} className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-700">
+                  {translateValue(row[h])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default function MonitorPage() {
   const [data, setData] = useState<any>(null);
@@ -45,6 +149,8 @@ export default function MonitorPage() {
     );
   };
 
+  const observerData = data?.result || data;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -82,17 +188,39 @@ export default function MonitorPage() {
                 <h3 className="text-lg leading-6 font-medium text-gray-900">系统整体状态</h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">当前系统及各模块健康指标概览</p>
               </div>
-              {data?.status && renderStatusBadge(data.status)}
+              {observerData?.is_healthy !== undefined 
+                ? renderStatusBadge(observerData.is_healthy ? 'healthy' : 'error') 
+                : (observerData?.status && typeof observerData.status === 'string' && !observerData.status.includes('\n') && renderStatusBadge(observerData.status))}
             </div>
             <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
               <dl className="sm:divide-y sm:divide-gray-200">
-                {Object.entries(data || {}).map(([key, value]) => {
+                {Object.entries(observerData || {}).map(([key, value]) => {
                   if (key === "components" || typeof value === "object") return null;
+                  
+                  const isStatusKey = key.toLowerCase().includes("status");
+                  const hasMarkdown = isMarkdownString(value);
+                  const isMultiline = isMultilineText(value);
+                  const showFullWidth = hasMarkdown || isMultiline;
+
                   return (
-                    <div key={key} className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                      <dt className="text-sm font-medium text-gray-500 capitalize">{key}</dt>
-                      <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                        {key.toLowerCase().includes("status") ? renderStatusBadge(value) : String(value)}
+                    <div key={key} className={`py-4 sm:py-5 sm:grid sm:gap-4 sm:px-6 ${showFullWidth ? 'sm:grid-cols-1' : 'sm:grid-cols-3'}`}>
+                      <dt className="text-sm font-medium text-gray-500 capitalize">{translateKey(key)}</dt>
+                      <dd className={`mt-1 text-sm text-gray-900 sm:mt-0 ${showFullWidth ? '' : 'sm:col-span-2'}`}>
+                        {hasMarkdown ? (
+                          <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
+                            <div className="prose prose-sm max-w-none text-gray-700">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {String(value)}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        ) : isMultiline ? (
+                          <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
+                            <StatusTable statusStr={String(value)} />
+                          </div>
+                        ) : (
+                          isStatusKey ? renderStatusBadge(value) : String(value)
+                        )}
                       </dd>
                     </div>
                   );
@@ -102,37 +230,52 @@ export default function MonitorPage() {
           </div>
 
           {/* 组件状态列表 */}
-          {(data?.components || data?.services || data?.dependencies) && (
+          {(observerData?.components || observerData?.services || observerData?.dependencies) && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">组件健康状态</h3>
               </div>
               <div className="border-t border-gray-200">
                 <ul className="divide-y divide-gray-200">
-                  {Object.entries(data?.components || data?.services || data?.dependencies || {}).map(([name, info]: [string, any]) => (
-                    <li key={name} className="px-4 py-4 sm:px-6 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{name}</span>
-                        {info.message && <span className="text-sm text-gray-500">{info.message}</span>}
+                  {Object.entries(observerData?.components || observerData?.services || observerData?.dependencies || {}).map(([name, info]: [string, any]) => {
+                    const hasMarkdown = isMarkdownString(info.status);
+                    const isMultiline = isMultilineText(info.status);
+
+                    return (
+                    <li key={name} className="px-4 py-4 sm:px-6 flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-gray-900">{translateKey(name)}</span>
+                          {info.message && <span className="text-sm text-gray-500">{info.message}</span>}
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          {info.latency && <span className="text-sm text-gray-500">{info.latency}</span>}
+                          {info.is_healthy !== undefined 
+                            ? renderStatusBadge(info.is_healthy ? 'healthy' : 'error')
+                            : renderStatusBadge(info.status && typeof info.status === 'string' && !info.status.includes('\n') ? info.status : 'unknown')}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        {info.latency && <span className="text-sm text-gray-500">{info.latency}</span>}
-                        {info.status ? renderStatusBadge(info.status) : renderStatusBadge(typeof info === "string" ? info : "Unknown")}
-                      </div>
+                      
+                      {hasMarkdown ? (
+                        <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
+                          <div className="prose prose-sm max-w-none text-gray-700">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {info.status}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      ) : isMultiline ? (
+                        <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
+                          <StatusTable statusStr={String(info.status)} />
+                        </div>
+                      ) : null}
                     </li>
-                  ))}
+                  )})}
                 </ul>
               </div>
             </div>
           )}
           
-          {/* 兜底：原始JSON展示 (方便调试不可预见的结构) */}
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-             <h4 className="text-sm font-medium text-gray-700 mb-2">详细诊断信息 (Raw JSON)</h4>
-             <pre className="text-xs text-gray-600 overflow-x-auto">
-               {JSON.stringify(data, null, 2)}
-             </pre>
-          </div>
         </div>
       )}
     </div>

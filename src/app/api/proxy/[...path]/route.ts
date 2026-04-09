@@ -29,7 +29,36 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
     // Prepare headers, injecting the API key
     const headers = new Headers(req.headers)
     headers.delete('host') // Remove the host header to avoid conflicts
-    headers.set('X-API-Key', process.env.OPENVIKING_ROOT_KEY || '')
+    
+    if (pathname.startsWith('admin') || pathname.startsWith('observer')) {
+      headers.set('X-API-Key', process.env.OPENVIKING_ROOT_KEY || '')
+    } else {
+      const testApiKey = headers.get('x-test-api-key')
+      const testAccount = headers.get('x-test-account')
+      const testUser = headers.get('x-test-user')
+
+      if (testApiKey) {
+        headers.set('X-API-Key', testApiKey)
+        headers.delete('x-test-api-key')
+      } else {
+        headers.set('X-API-Key', process.env.OPENVIKING_KEY || process.env.OPENVIKING_ROOT_KEY || '')
+      }
+
+      // If using root key for tenant APIs, we must provide account and user headers
+      if (testAccount) {
+        headers.set('X-OpenViking-Account', testAccount)
+        headers.delete('x-test-account')
+      } else if (!headers.has('X-OpenViking-Account')) {
+        headers.set('X-OpenViking-Account', 'default')
+      }
+
+      if (testUser) {
+        headers.set('X-OpenViking-User', testUser)
+        headers.delete('x-test-user')
+      } else if (!headers.has('X-OpenViking-User')) {
+        headers.set('X-OpenViking-User', 'admin')
+      }
+    }
 
     // Prepare options for the fetch call
     const fetchOptions: RequestInit & { duplex?: string, dispatcher?: any } = {
