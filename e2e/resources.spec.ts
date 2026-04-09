@@ -36,11 +36,15 @@ test.describe('Resource Center', () => {
     const testFilePath = path.join(__dirname, testFileName);
     fs.writeFileSync(testFilePath, 'Hello from E2E ' + Date.now());
 
+    // Click "添加资源" to open the upload modal
+    await page.click('button:has-text("添加资源")');
+    await expect(page.locator('text=当前目标目录：')).toBeVisible();
+
     // Playwright sets input files
     await page.setInputFiles('input[type="file"]', testFilePath);
     
-    // Wait until uploading text is gone
-    await expect(page.locator('button:has-text("上传文件")')).toBeVisible({ timeout: 10000 });
+    // Wait until uploading text is gone and modal is closed
+    await expect(page.locator('button:has-text("选择并上传文件")')).toBeHidden({ timeout: 10000 });
     
     // 4. Verify file appears in list
     const fileLocator = page.locator(`text=${testFileName}`);

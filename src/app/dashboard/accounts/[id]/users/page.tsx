@@ -7,6 +7,8 @@ import { getAccountUsers, createAccountUser, deleteAccountUser, updateAccountUse
 interface User {
   user_id: string;
   role: string;
+  user_key?: string;
+  api_key?: string;
 }
 
 export default function UsersPage(props: { params: Promise<{ id: string }> }) {
@@ -101,6 +103,10 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   };
 
   const copyToClipboard = (text: string) => {
+    if (!text) {
+      alert("未能获取到该用户的 Key");
+      return;
+    }
     navigator.clipboard.writeText(text);
     alert("已复制到剪贴板！");
   };
@@ -132,7 +138,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User ID
+                  用户
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   角色
@@ -160,6 +166,12 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => copyToClipboard(user.user_key || user.api_key || "")}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                    >
+                      复制 Key
+                    </button>
                     <button
                       onClick={() =>
                         handleChangeRole(user.user_id, user.role === "admin" ? "user" : "admin")
@@ -231,7 +243,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
             ) : (
               <form onSubmit={handleCreate}>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">用户</label>
                   <input
                     type="text"
                     required

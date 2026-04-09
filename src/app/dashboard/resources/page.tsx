@@ -225,6 +225,8 @@ export default function ResourcesPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
   const [accounts, setAccounts] = useState<Record<string, unknown>[]>([]);
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("default");
@@ -256,7 +258,7 @@ export default function ResourcesPage() {
 
   useEffect(() => {
     const loadUsers = async () => {
-      if (!selectedAccountId || selectedAccountId === "default") return;
+      if (!selectedAccountId) return;
       try {
         const data = await getAccountUsers(selectedAccountId);
         if (data.status === "ok") {
@@ -410,18 +412,28 @@ export default function ResourcesPage() {
 
       if (!tempFileId) throw new Error("No temp_file_id returned");
 
-      const targetUri = currentUri.endsWith('/') ? currentUri + file.name : currentUri + '/' + file.name;
+      let targetUri = currentUri;
+      if (!targetUri.endsWith('/')) {
+        targetUri += '/';
+      }
+      
+      // If it's a zip file, upload it to the directory so it unpacks there.
+      // Otherwise, upload it as a specific file.
+      if (!file.name.toLowerCase().endsWith('.zip')) {
+        targetUri += file.name;
+      }
+
       await addResource({
         temp_file_id: tempFileId,
         target: targetUri,
-        wait: true,
+        wait: false,
       }, tenantHeaders);
 
       // After upload, re-fetch the root list to update the tree.
-      // A more robust solution would be to update the specific tree node.
       if (!isSearching) {
         fetchRootList();
       }
+      setIsUploadModalOpen(false); // Close modal on success
     } catch (err) {
       console.error(err);
       alert("Upload failed: " + (err as Error).message);
@@ -440,18 +452,11 @@ export default function ResourcesPage() {
         <div className="p-4 border-b bg-white flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-800">资源文件</h2>
           <div>
-            <input
-              type="file"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-            />
             <button
-              onClick={handleUploadClick}
-              disabled={uploading}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
             >
-              {uploading ? "上传中..." : "上传文件"}
+              添加资源
             </button>
           </div>
         </div>
@@ -459,7 +464,7 @@ export default function ResourcesPage() {
         {/* Tenant Selection */}
         <div className="p-3 border-b bg-gray-50 flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-gray-600 font-medium">账号 (Account)</span>
+            <span className="text-gray-600 font-medium">命名空间</span>
             <select 
               className="px-2 py-1 border rounded text-gray-700 bg-white w-2/3"
               value={selectedAccountId}
@@ -473,13 +478,13 @@ export default function ResourcesPage() {
               disabled={loadingAccounts}
             >
               <option value="default">Default</option>
-              {accounts.map(acc => (
+              {accounts.filter(acc => acc.account_id !== "default").map(acc => (
                 <option key={acc.account_id as string} value={acc.account_id as string}>{(acc.name as string) || (acc.account_id as string)}</option>
               ))}
             </select>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-600 font-medium">用户 (User)</span>
+            <span className="text-gray-600 font-medium">用户</span>
             <select 
               className="px-2 py-1 border rounded text-gray-700 bg-white w-2/3"
               value={selectedUserId}
@@ -490,10 +495,10 @@ export default function ResourcesPage() {
                 setSelectedFile(null);
                 setFileContent(null);
               }}
-              disabled={!selectedAccountId || selectedAccountId === 'default'}
+              disabled={!selectedAccountId}
             >
               <option value="admin">Admin</option>
-              {users.map(u => (
+              {users.filter(u => u.user_id !== "admin").map(u => (
                 <option key={u.user_id as string} value={u.user_id as string}>{(u.name as string) || (u.user_id as string)}</option>
               ))}
             </select>
@@ -580,6 +585,56 @@ export default function ResourcesPage() {
           </div>
         )}
       </div>
+
+      {/* Upload Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[500px] shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">添加资源</h3>
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-2">当前目标目录：</p>
+              <div className="bg-gray-100 p-3 rounded text-sm text-gray-800 font-mono break-all border">
+                {currentUri}
+              </div>
+              <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+                请先在左侧资源树中选择目标目录，然后再上传文件。<br />
+                注意：如果是 ZIP 压缩包，它将被自动解压到该目录中。
+              </p>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+                disabled={uploading}
+              >
+                取消
+              </button>
+              <div className="relative">
+                <input
+                  type="file"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
+                <button
+                  onClick={handleUploadClick}
+                  disabled={uploading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
+                >
+                  {uploading ? (
+                    <>
+                      <span className="mr-2 animate-spin">⏳</span> 上传中...
+                    </>
+                  ) : (
+                    "选择并上传文件"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

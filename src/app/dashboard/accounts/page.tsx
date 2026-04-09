@@ -189,7 +189,7 @@ export default function AccountsPage() {
               <form onSubmit={handleCreate}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Account ID
+                    命名空间
                   </label>
                   <input
                     type="text"

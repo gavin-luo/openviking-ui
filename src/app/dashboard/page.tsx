@@ -42,8 +42,9 @@ export default function Dashboard() {
     : [];
   const dbContext = vikingdbData.find(db => db.Collection === 'context');
 
-  const vlmData = data?.components?.vlm?.status
-    ? parseObserverTable(data.components.vlm.status)
+  const vlmStatus = data?.components?.models?.status || data?.components?.vlm?.status;
+  const vlmData = vlmStatus
+    ? parseObserverTable(vlmStatus)
     : [];
 
   const retrievalStatus = data?.components?.retrieval?.status || data?.components?.search?.status;
@@ -104,7 +105,7 @@ export default function Dashboard() {
       )}
 
       {!!data && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
           
           {/* 队列状态 */}
           <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
@@ -210,15 +211,15 @@ export default function Dashboard() {
           </div>
 
           {/* VLM 状态 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">视觉语言模型 (VLM)</h3>
+          <div className="bg-white shadow rounded-lg overflow-hidden flex flex-col max-h-[600px]">
+            <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">模型监控</h3>
               {renderBadge(
-                data?.components?.vlm?.is_healthy ? '正常' : '异常', 
-                getStatusColor(data?.components?.vlm?.is_healthy)
+                (data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy) ? '正常' : '异常', 
+                getStatusColor(data?.components?.models?.is_healthy ?? data?.components?.vlm?.is_healthy)
               )}
             </div>
-            <div className="p-4 flex-1 overflow-auto">
+            <div className="p-4 flex-1 overflow-y-auto">
               <div className="space-y-4">
                 {vlmData.filter(m => m.Model !== 'TOTAL').map((model, idx) => (
                   <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-100">

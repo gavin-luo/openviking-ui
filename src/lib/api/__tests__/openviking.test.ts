@@ -96,7 +96,7 @@ describe('OpenViking API Client Integration Tests', () => {
     };
 
     it('should list directory', async () => {
-      const res = await listDirectory('viking://resources/', headers);
+      const res = await listDirectory('viking://resources/', {}, headers);
       expect(res.status).toBe('ok');
       expect(Array.isArray(res.result)).toBe(true);
     });
