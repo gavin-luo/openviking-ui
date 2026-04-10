@@ -134,7 +134,7 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
 
   const copyToClipboard = (text: string) => {
     if (!text) {
-      alert("未能获取到该用户的 Key");
+      alert("未能获取到该用户的 Key。出于安全原因，服务端不会返回历史 Key；请点击「重置 Key」生成新 Key 后再复制。");
       return;
     }
     navigator.clipboard.writeText(text);
@@ -279,6 +279,9 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
                   <code className="block p-2 bg-white rounded border break-all text-xs">
                     {modalKey}
                   </code>
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 text-yellow-900 rounded-md text-sm">
+                    重要：该 Key 只会在创建/重置时显示一次，关闭后无法再次查看，请立即复制并妥善保存。
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button

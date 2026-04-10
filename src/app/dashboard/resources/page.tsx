@@ -227,6 +227,8 @@ export default function ResourcesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadErrorDetails, setUploadErrorDetails] = useState<string | null>(null);
 
   const [accounts, setAccounts] = useState<Record<string, unknown>[]>([]);
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
@@ -437,6 +439,8 @@ export default function ResourcesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+    setUploadErrorDetails(null);
     setUploading(true);
     try {
       const tempData = await tempUploadResource(file, tenantHeaders);
@@ -469,7 +473,17 @@ export default function ResourcesPage() {
     } catch (err) {
       console.error(err);
       if (handleAuthError(err)) return;
-      alert("Upload failed: " + (err as Error).message);
+      const raw = err instanceof Error ? err.message : String(err);
+      const details = `Upload failed: ${raw}`;
+      const lower = details.toLowerCase();
+      if (lower.includes("failed to acquire point lock") || lower.includes("point lock")) {
+        setUploadError("上传失败：目标资源目录正在被占用（锁冲突），请稍后重试。");
+      } else if (lower.includes("500") || lower.includes("internal server error")) {
+        setUploadError("上传失败：服务端内部错误，请稍后重试或联系管理员。");
+      } else {
+        setUploadError("上传失败，请稍后重试。");
+      }
+      setUploadErrorDetails(details);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -663,10 +677,25 @@ export default function ResourcesPage() {
                 注意：如果是 ZIP 压缩包，它将被自动解压到该目录中。
               </p>
             </div>
+
+            {uploadError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
+                <div className="font-semibold">{uploadError}</div>
+                {uploadErrorDetails && (
+                  <div className="mt-2 text-xs font-mono whitespace-pre-wrap break-words text-red-700">
+                    {uploadErrorDetails}
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={() => setIsUploadModalOpen(false)}
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  setUploadError(null);
+                  setUploadErrorDetails(null);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
                 disabled={uploading}
               >

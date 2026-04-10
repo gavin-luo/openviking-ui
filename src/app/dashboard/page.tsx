@@ -1,33 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getSystemObserver } from "@/lib/api/openviking";
 import { parseObserverTable } from "@/lib/utils/observer";
+
+const formatTime = (ts: number) =>
+  new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
 export default function Dashboard() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [refreshHint, setRefreshHint] = useState<{ type: "info" | "success" | "error"; text: string } | null>(null);
+  const refreshHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchHealth = async () => {
+  const setTransientHint = useCallback(
+    (hint: { type: "info" | "success" | "error"; text: string } | null, durationMs = 2500) => {
+      if (refreshHintTimeoutRef.current) clearTimeout(refreshHintTimeoutRef.current);
+      setRefreshHint(hint);
+      if (!hint) return;
+      refreshHintTimeoutRef.current = setTimeout(() => setRefreshHint(null), durationMs);
+    },
+    [],
+  );
+
+  const fetchHealth = useCallback(async (trigger: "auto" | "manual" = "auto") => {
+    const isManual = trigger === "manual";
     try {
+      if (isManual) {
+        setManualRefreshing(true);
+        setTransientHint({ type: "info", text: "正在刷新…" });
+      }
       setLoading(true);
       setError(null);
       const json = await getSystemObserver();
       setData(json?.result || json);
+      const now = Date.now();
+      setLastUpdatedAt(now);
+      if (isManual) setTransientHint({ type: "success", text: `已更新 ${formatTime(now)}` });
     } catch (err) {
       setError(err instanceof Error ? err.message : "获取系统状态失败");
+      if (isManual) setTransientHint({ type: "error", text: "刷新失败，请稍后重试" });
     } finally {
       setLoading(false);
+      if (isManual) setManualRefreshing(false);
     }
-  };
+  }, [setTransientHint]);
 
   useEffect(() => {
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchHealth("auto");
+    const interval = setInterval(() => fetchHealth("auto"), 10000);
+    return () => {
+      clearInterval(interval);
+      if (refreshHintTimeoutRef.current) clearTimeout(refreshHintTimeoutRef.current);
+    };
+  }, [fetchHealth]);
 
   // 解析各个组件的数据
   const queueData = data?.components?.queue?.status 
@@ -84,11 +114,33 @@ export default function Dashboard() {
             </div>
           )}
           <button
-            onClick={fetchHealth}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium transition-colors"
+            onClick={() => fetchHealth("manual")}
+            disabled={manualRefreshing}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
-            刷新状态
+            {manualRefreshing && (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
+            )}
+            {manualRefreshing ? "刷新中…" : "刷新状态"}
           </button>
+          <div className="min-w-28 text-right">
+            {refreshHint ? (
+              <span
+                className={[
+                  "text-xs font-medium",
+                  refreshHint.type === "success"
+                    ? "text-green-700"
+                    : refreshHint.type === "error"
+                      ? "text-red-700"
+                      : "text-gray-600",
+                ].join(" ")}
+              >
+                {refreshHint.text}
+              </span>
+            ) : lastUpdatedAt ? (
+              <span className="text-xs text-gray-500">更新于 {formatTime(lastUpdatedAt)}</span>
+            ) : null}
+          </div>
         </div>
       </div>
 
