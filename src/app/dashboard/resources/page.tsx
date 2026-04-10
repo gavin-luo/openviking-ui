@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   listDirectory, 
   readFileContent, 
   tempUploadResource, 
   addResource, 
+  deleteFsEntry,
   searchFind,
   getContentAbstract,
   getContentOverview,
@@ -45,6 +46,18 @@ const normalizeDirUri = (uri: string): string => {
   return `${base.replace(/\/+$/, "")}/`;
 };
 
+const getParentResourceUri = (uri: string): string => {
+  const baseRoot = "viking://resources";
+  const cleaned = uri.trim().replace(/\/+$/, "");
+  if (!cleaned || cleaned === baseRoot) return baseRoot;
+
+  const withoutRoot = cleaned.startsWith(baseRoot) ? cleaned.slice(baseRoot.length) : cleaned;
+  const segments = withoutRoot.split("/").filter(Boolean);
+  if (segments.length <= 1) return baseRoot;
+
+  return `${baseRoot}/${segments.slice(0, -1).join("/")}`;
+};
+
 const processEntries = (items: Record<string, unknown>[]): FSEntry[] => {
   return items.map((item) => {
     const isDirRaw = item.isDir ?? item.is_dir;
@@ -68,6 +81,8 @@ function TreeNode({
   selectedFileUri,
   onSelectDir,
   onSelectFile,
+  onDelete,
+  onDeleted,
   isSearching,
   headers,
 }: {
@@ -77,6 +92,8 @@ function TreeNode({
   selectedFileUri: string | null;
   onSelectDir: (uri: string) => void;
   onSelectFile: (entry: FSEntry) => void;
+  onDelete: (entry: FSEntry) => Promise<boolean>;
+  onDeleted?: (uri: string) => void;
   isSearching: boolean;
   headers?: Record<string, string>;
 }) {
@@ -84,6 +101,7 @@ function TreeNode({
   const [children, setChildren] = useState<FSEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [abstract, setAbstract] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isDir = entry.isDir;
   const isSelected = isDir
@@ -145,9 +163,17 @@ function TreeNode({
 
   return (
     <div className="w-full">
-      <button
+      <div
         onClick={handleClick}
-        className={`w-full text-left py-1.5 pr-2 flex flex-col hover:bg-gray-200 transition-colors ${
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+        className={`w-full text-left py-1.5 pr-2 flex flex-col hover:bg-gray-200 transition-colors outline-none ${
           isSelected ? "bg-blue-100 text-blue-800" : "text-gray-700"
         }`}
         style={{ paddingLeft: isSearching ? '0.5rem' : paddingLeft }}
@@ -181,6 +207,27 @@ function TreeNode({
               Score: {entry.score.toFixed(2)}
             </span>
           )}
+
+          <button
+            type="button"
+            className="ml-3 text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:hover:no-underline"
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (isDeleting) return;
+              setIsDeleting(true);
+              try {
+                const ok = await onDelete(entry);
+                if (ok) {
+                  onDeleted?.(entry.uri);
+                }
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "删除中..." : "删除"}
+          </button>
         </div>
         
         {(entry.abstract || abstract) && (
@@ -188,7 +235,7 @@ function TreeNode({
             {entry.abstract || abstract}
           </p>
         )}
-      </button>
+      </div>
       
       {isExpanded && !isSearching && children && (
         <div className="flex flex-col">
@@ -209,6 +256,10 @@ function TreeNode({
                 selectedFileUri={selectedFileUri}
                 onSelectDir={onSelectDir}
                 onSelectFile={onSelectFile}
+                onDelete={onDelete}
+                onDeleted={(uri) => {
+                  setChildren((prev) => (prev ? prev.filter((e) => e.uri !== uri) : prev));
+                }}
                 isSearching={isSearching}
                 headers={headers}
               />
@@ -246,12 +297,12 @@ export default function ResourcesPage() {
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [apiKeyErrorDetails, setApiKeyErrorDetails] = useState<string | null>(null);
 
-  const handleAuthError = (err: unknown) => {
+  const handleAuthError = useCallback((err: unknown) => {
     if (!isUnauthenticatedError(err)) return false;
     setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
     setApiKeyErrorDetails(err instanceof Error ? err.message : String(err));
     return true;
-  };
+  }, []);
 
   useEffect(() => {
     const loadAccounts = async () => {
@@ -280,7 +331,7 @@ export default function ResourcesPage() {
       }
     };
     loadAccounts();
-  }, []);
+  }, [handleAuthError]);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -304,21 +355,20 @@ export default function ResourcesPage() {
       }
     };
     loadUsers();
-  }, [selectedAccountId]);
+  }, [handleAuthError, selectedAccountId]);
 
-  const tenantHeaders = {
-    'x-test-account': selectedAccountId,
-    'x-test-user': selectedUserId
-  };
+  const tenantHeaders = useMemo(() => {
+    return {
+      'x-test-account': selectedAccountId,
+      'x-test-user': selectedUserId
+    };
+  }, [selectedAccountId, selectedUserId]);
 
   const fetchRootList = useCallback(async () => {
     setLoadingList(true);
     setIsSearching(false);
     try {
-      const data = await fetchDir("viking://resources/", {
-        'x-test-account': selectedAccountId,
-        'x-test-user': selectedUserId
-      });
+      const data = await fetchDir("viking://resources/", tenantHeaders);
       if (data.status === "ok") {
         let items = data.result || [];
         // Handle output=original or other non-array responses
@@ -347,7 +397,7 @@ export default function ResourcesPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [selectedAccountId, selectedUserId]);
+  }, [handleAuthError, tenantHeaders]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -438,6 +488,39 @@ export default function ResourcesPage() {
     setSelectedFile(null);
     setFileContent(null);
   };
+
+  const handleDelete = useCallback(async (entry: FSEntry) => {
+    const selectedUri = selectedFile?.uri || null;
+    const title = entry.isDir
+      ? `确定删除文件夹 “${entry.name}” 以及子目录中的所有文件吗？`
+      : `确定删除文件 “${entry.name}” 吗？`;
+
+    if (!window.confirm(title)) return false;
+
+    try {
+      await deleteFsEntry(entry.uri, { recursive: entry.isDir }, tenantHeaders);
+
+      setSelectedFile((prev) => (prev?.uri === entry.uri ? null : prev));
+      setFileContent((prev) => (selectedUri === entry.uri ? null : prev));
+
+      if (entry.isDir) {
+        const currentNorm = normalizeDirUri(currentUri);
+        const deletedNorm = normalizeDirUri(entry.uri);
+        if (currentNorm.startsWith(deletedNorm)) {
+          setCurrentUri(getParentResourceUri(entry.uri));
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error(err);
+      if (handleAuthError(err)) return false;
+
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`删除失败：${message}`);
+      return false;
+    }
+  }, [currentUri, handleAuthError, selectedFile?.uri, tenantHeaders]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -639,6 +722,10 @@ export default function ResourcesPage() {
                   selectedFileUri={selectedFile?.uri || null}
                   onSelectDir={handleSelectDir}
                   onSelectFile={handleSelectFile}
+                  onDelete={handleDelete}
+                  onDeleted={(uri) => {
+                    setEntries((prev) => prev.filter((e) => e.uri !== uri));
+                  }}
                   isSearching={isSearching}
                   headers={tenantHeaders}
                 />

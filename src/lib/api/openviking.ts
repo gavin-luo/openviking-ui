@@ -238,6 +238,17 @@ export async function addResource(data: { temp_file_id: string; target: string; 
   });
 }
 
+export async function deleteFsEntry(uri: string, options?: { recursive?: boolean }, headers?: Record<string, string>) {
+  const queryParams = new URLSearchParams({ uri });
+  if (options?.recursive !== undefined) {
+    queryParams.append('recursive', String(options.recursive));
+  }
+  return fetchApi(`/fs?${queryParams.toString()}`, {
+    method: 'DELETE',
+    headers,
+  });
+}
+
 // ==========================================
 // Search API (检索)
 // ==========================================

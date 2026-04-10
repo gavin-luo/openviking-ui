@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { searchFind, searchSearch, isUnauthenticatedError } from "@/lib/api/openviking";
+import { useEffect, useState } from "react";
+import {
+  getAccounts,
+  getAccountUsers,
+  isUnauthenticatedError,
+  searchFind,
+  searchSearch,
+} from "@/lib/api/openviking";
 
 interface SearchResult {
   uri: string;
@@ -21,6 +27,79 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [accounts, setAccounts] = useState<Record<string, unknown>[]>([]);
+  const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("default");
+  const [selectedUserId, setSelectedUserId] = useState<string>("admin");
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeyErrorDetails, setApiKeyErrorDetails] = useState<string | null>(null);
+
+  const handleAuthError = (err: unknown) => {
+    if (!isUnauthenticatedError(err)) return false;
+    setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+    setApiKeyErrorDetails(err instanceof Error ? err.message : String(err));
+    return true;
+  };
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      setLoadingAccounts(true);
+      try {
+        setApiKeyError(null);
+        setApiKeyErrorDetails(null);
+        const data = await getAccounts();
+        if (data.status === "ok") {
+          setAccounts(data.result || []);
+          setSelectedAccountId((prev) => {
+            if (data.result?.length > 0 && prev === "default") {
+              return data.result[0].account_id as string;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        if (handleAuthError(err)) {
+          setAccounts([]);
+          return;
+        }
+        console.error("Failed to load accounts", err);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+    loadAccounts();
+  }, []);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (!selectedAccountId) return;
+      try {
+        const data = await getAccountUsers(selectedAccountId);
+        if (data.status === "ok") {
+          setUsers(data.result || []);
+          if (data.result?.length > 0) {
+            setSelectedUserId(data.result[0].user_id as string);
+          } else {
+            setSelectedUserId("admin");
+          }
+        }
+      } catch (err) {
+        if (handleAuthError(err)) {
+          setUsers([]);
+          return;
+        }
+        console.error("Failed to load users", err);
+      }
+    };
+    loadUsers();
+  }, [selectedAccountId]);
+
+  const tenantHeaders = {
+    "x-test-account": selectedAccountId,
+    "x-test-user": selectedUserId,
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -32,9 +111,15 @@ export default function SearchPage() {
       const limitValue = typeof limit === "number" && limit > 0 ? limit : 10;
       let data;
       if (searchMode === "find") {
-        data = await searchFind(query.trim(), limitValue, targetUri.trim() || undefined);
+        data = await searchFind(query.trim(), limitValue, targetUri.trim() || undefined, tenantHeaders);
       } else {
-        data = await searchSearch(query.trim(), limitValue, sessionId.trim() || undefined, targetUri.trim() || undefined);
+        data = await searchSearch(
+          query.trim(),
+          limitValue,
+          sessionId.trim() || undefined,
+          targetUri.trim() || undefined,
+          tenantHeaders
+        );
       }
 
       // Assume response is either an array of results or has a `resources` or `data` field
@@ -70,8 +155,7 @@ export default function SearchPage() {
       
       setResults(items);
     } catch (err) {
-      if (isUnauthenticatedError(err)) {
-        setError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）。请检查服务端 OPENVIKING_ROOT_KEY 并重启 Next.js 服务后重试。");
+      if (handleAuthError(err)) {
         setResults([]);
         return;
       }
@@ -84,6 +168,34 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {apiKeyError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{apiKeyError}</div>
+              <div className="mt-1 text-sm text-red-700">
+                请检查服务端配置的 OPENVIKING_ROOT_KEY 是否正确/有权限，并重启 Next.js 服务后重试。
+              </div>
+              {apiKeyErrorDetails && (
+                <div className="mt-2 text-xs font-mono whitespace-pre-wrap break-words text-red-700">
+                  {apiKeyErrorDetails}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-100"
+              onClick={() => {
+                setApiKeyError(null);
+                setApiKeyErrorDetails(null);
+              }}
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">检索测试面板</h1>
@@ -93,6 +205,51 @@ export default function SearchPage() {
 
       <div className="bg-white shadow sm:rounded-lg p-6 border border-gray-100">
         <form onSubmit={handleSearch} className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">命名空间</label>
+              <select
+                className="block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border bg-white"
+                value={selectedAccountId}
+                onChange={(e) => {
+                  setSelectedAccountId(e.target.value);
+                  setResults([]);
+                }}
+                disabled={loadingAccounts}
+              >
+                <option value="default">Default</option>
+                {accounts
+                  .filter((acc) => acc.account_id !== "default")
+                  .map((acc) => (
+                    <option key={acc.account_id as string} value={acc.account_id as string}>
+                      {(acc.name as string) || (acc.account_id as string)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">用户</label>
+              <select
+                className="block w-full px-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border bg-white"
+                value={selectedUserId}
+                onChange={(e) => {
+                  setSelectedUserId(e.target.value);
+                  setResults([]);
+                }}
+                disabled={!selectedAccountId}
+              >
+                <option value="admin">Admin</option>
+                {users
+                  .filter((u) => u.user_id !== "admin")
+                  .map((u) => (
+                    <option key={u.user_id as string} value={u.user_id as string}>
+                      {(u.name as string) || (u.user_id as string)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">检索内容</label>
