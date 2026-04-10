@@ -39,6 +39,12 @@ const parseBoolean = (val: unknown): boolean => {
   return Boolean(val);
 };
 
+const normalizeDirUri = (uri: string): string => {
+  const trimmed = uri.trim();
+  const base = trimmed || "viking://resources";
+  return `${base.replace(/\/+$/, "")}/`;
+};
+
 const processEntries = (items: Record<string, unknown>[]): FSEntry[] => {
   return items.map((item) => {
     const isDirRaw = item.isDir ?? item.is_dir;
@@ -80,7 +86,9 @@ function TreeNode({
   const [abstract, setAbstract] = useState<string | null>(null);
 
   const isDir = entry.isDir;
-  const isSelected = isDir ? currentUri === entry.uri : selectedFileUri === entry.uri;
+  const isSelected = isDir
+    ? normalizeDirUri(currentUri) === normalizeDirUri(entry.uri)
+    : selectedFileUri === entry.uri;
 
   const handleExpand = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -213,7 +221,7 @@ function TreeNode({
 }
 
 export default function ResourcesPage() {
-  const [currentUri, setCurrentUri] = useState("viking://resources/");
+  const [currentUri, setCurrentUri] = useState("viking://resources");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [entries, setEntries] = useState<FSEntry[]>([]);
@@ -351,7 +359,7 @@ export default function ResourcesPage() {
     setLoadingList(true);
     setIsSearching(true);
     try {
-      const targetUri = currentUri || "viking://resources/";
+      const targetUri = normalizeDirUri(currentUri || "viking://resources");
       const data = await searchFind(searchQuery.trim(), 20, targetUri, tenantHeaders);
       
       let items: Record<string, unknown>[] = [];
@@ -426,7 +434,7 @@ export default function ResourcesPage() {
   };
 
   const handleSelectDir = (uri: string) => {
-    setCurrentUri(uri);
+    setCurrentUri(uri.replace(/\/+$/, ""));
     setSelectedFile(null);
     setFileContent(null);
   };
@@ -546,7 +554,7 @@ export default function ResourcesPage() {
               value={selectedAccountId}
               onChange={(e) => {
                 setSelectedAccountId(e.target.value);
-                setCurrentUri("viking://resources/");
+                setCurrentUri("viking://resources");
                 setEntries([]);
                 setSelectedFile(null);
                 setFileContent(null);
@@ -566,7 +574,7 @@ export default function ResourcesPage() {
               value={selectedUserId}
               onChange={(e) => {
                 setSelectedUserId(e.target.value);
-                setCurrentUri("viking://resources/");
+                setCurrentUri("viking://resources");
                 setEntries([]);
                 setSelectedFile(null);
                 setFileContent(null);
@@ -603,13 +611,26 @@ export default function ResourcesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
-          {loadingList ? (
-            <div className="text-center text-gray-500 mt-4">加载中...</div>
-          ) : entries.length === 0 ? (
-            <div className="text-center text-gray-500 mt-4">空目录</div>
-          ) : (
-            <div className="space-y-1">
-              {entries.map((entry) => (
+          <div className="space-y-1">
+            <button
+              onClick={() => handleSelectDir("viking://resources")}
+              className={`w-full text-left py-1.5 pr-2 flex items-center hover:bg-gray-200 transition-colors ${
+                normalizeDirUri(currentUri) === normalizeDirUri("viking://resources")
+                  ? "bg-blue-100 text-blue-800"
+                  : "text-gray-700"
+              }`}
+              style={{ paddingLeft: "0.5rem" }}
+            >
+              <span className="mr-2 text-lg">📁</span>
+              <span className="truncate flex-1">resources</span>
+            </button>
+
+            {loadingList ? (
+              <div className="text-center text-gray-500 mt-4">加载中...</div>
+            ) : entries.length === 0 ? (
+              <div className="text-center text-gray-500 mt-4">空目录</div>
+            ) : (
+              entries.map((entry) => (
                 <TreeNode
                   key={entry.uri}
                   entry={entry}
@@ -621,9 +642,9 @@ export default function ResourcesPage() {
                   isSearching={isSearching}
                   headers={tenantHeaders}
                 />
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -669,9 +690,16 @@ export default function ResourcesPage() {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">添加资源</h3>
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-2">当前目标目录：</p>
-              <div className="bg-gray-100 p-3 rounded text-sm text-gray-800 font-mono break-all border">
-                {currentUri}
-              </div>
+              <input
+                type="text"
+                className="w-full bg-gray-100 p-3 rounded text-sm text-gray-800 font-mono border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={currentUri}
+                onChange={(e) => setCurrentUri(e.target.value)}
+                onBlur={() => {
+                  setCurrentUri((prev) => prev.trim() || "viking://resources");
+                }}
+                spellCheck={false}
+              />
               <p className="text-xs text-gray-500 mt-3 leading-relaxed">
                 请先在左侧资源树中选择目标目录，然后再上传文件。<br />
                 注意：如果是 ZIP 压缩包，它将被自动解压到该目录中。

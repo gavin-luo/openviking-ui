@@ -24,6 +24,19 @@ OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/O
 
 ---
 
+## 🖼️ 功能界面概览
+
+- 仪表盘（监控总览）
+  ![Dashboard](./docs/ui/dashboard.png)
+- 资源中心（资源树/上传/预览）
+  ![Resource Center](./docs/ui/resource_center.png)
+- 检索面板（语义检索调试）
+  ![Search](./docs/ui/search.png)
+- 账号与用户管理（多租户/用户）
+  ![Account Manager](./docs/ui/account_manager.png)
+
+---
+
 ## 🚀 快速开始 (本地开发)
 
 ### 1. 环境要求
