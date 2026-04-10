@@ -88,6 +88,7 @@ function TreeNode({
   onEditPermissions,
   isSearching,
   headers,
+  showDescription = false,
 }: {
   entry: FSEntry;
   level: number;
@@ -100,6 +101,7 @@ function TreeNode({
   onEditPermissions?: (uri: string) => void;
   isSearching: boolean;
   headers?: Record<string, string>;
+  showDescription?: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [children, setChildren] = useState<FSEntry[] | null>(null);
@@ -247,7 +249,7 @@ function TreeNode({
           </button>
         </div>
         
-        {(entry.abstract || abstract) && (
+        {showDescription && (entry.abstract || abstract) && (
           <p className="text-xs text-gray-500 mt-1 line-clamp-2 w-full pl-6">
             {entry.abstract || abstract}
           </p>
@@ -280,6 +282,7 @@ function TreeNode({
                 onEditPermissions={onEditPermissions}
                 isSearching={isSearching}
                 headers={headers}
+                showDescription={showDescription}
               />
             ))
           )}
@@ -295,6 +298,7 @@ export default function ResourcesPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [entries, setEntries] = useState<FSEntry[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState<FSEntry | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -707,8 +711,17 @@ export default function ResourcesPage() {
         </div>
 
         <div className="p-2 border-b bg-gray-100 flex flex-col gap-2 text-sm text-gray-600 overflow-x-auto">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <span className="truncate">{currentUri}</span>
+            <label className="flex items-center gap-1 cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={showDescription}
+                onChange={(e) => setShowDescription(e.target.checked)}
+                className="w-3.5 h-3.5"
+              />
+              <span className="text-xs">显示目录概览</span>
+            </label>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
@@ -763,6 +776,7 @@ export default function ResourcesPage() {
                   onEditPermissions={handleEditPermissions}
                   isSearching={isSearching}
                   headers={tenantHeaders}
+                  showDescription={showDescription}
                 />
               ))
             )}
@@ -918,7 +932,7 @@ export default function ResourcesPage() {
       {isPermissionModalOpen && selectedPermissionUri && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-20 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-2 w-[500px] shadow-xl">
-            <NodePermissions nodeUri={selectedPermissionUri} />
+            <NodePermissions key={selectedPermissionUri} nodeUri={selectedPermissionUri} />
             <div className="flex justify-end gap-3 p-4 border-t">
               <button
                 onClick={() => {

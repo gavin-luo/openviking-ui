@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Shield, Plus, X, Save, Check } from 'lucide-react';
 
 interface PermissionEntry {
@@ -8,8 +8,23 @@ interface PermissionEntry {
 }
 
 export function NodePermissions({ nodeUri }: { nodeUri: string }) {
-  const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const storageKey = `mock_permissions_${nodeUri}`;
+  const [permissions, setPermissions] = useState<PermissionEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as PermissionEntry[];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [
+      { entityId: "agent-001", type: "agent", role: "read" },
+      { entityId: "user-alice", type: "user", role: "write" },
+    ];
+  });
 
   const [isAdding, setIsAdding] = useState(false);
   const [newEntityId, setNewEntityId] = useState('');
@@ -17,26 +32,6 @@ export function NodePermissions({ nodeUri }: { nodeUri: string }) {
   const [newRole, setNewRole] = useState<'read' | 'write'>('read');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // 初始化加载：从 localStorage 模拟获取当前节点的权限
-  useEffect(() => {
-    const storageKey = `mock_permissions_${nodeUri}`;
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        setPermissions(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse stored permissions", e);
-      }
-    } else {
-      // 默认给一点模拟数据
-      setPermissions([
-        { entityId: 'agent-001', type: 'agent', role: 'read' },
-        { entityId: 'user-alice', type: 'user', role: 'write' },
-      ]);
-    }
-    setIsLoaded(true);
-  }, [nodeUri]);
 
   const handleAddRule = () => {
     if (!newEntityId.trim()) return;
@@ -76,8 +71,9 @@ export function NodePermissions({ nodeUri }: { nodeUri: string }) {
     await new Promise(resolve => setTimeout(resolve, 800));
     
     // 目前后端尚未提供正式的权限控制 API，暂存在前端 localStorage 中模拟持久化
-    const storageKey = `mock_permissions_${nodeUri}`;
-    localStorage.setItem(storageKey, JSON.stringify(permissions));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, JSON.stringify(permissions));
+    }
     
     setIsSaving(false);
     setSaveSuccess(true);
@@ -86,10 +82,6 @@ export function NodePermissions({ nodeUri }: { nodeUri: string }) {
       setSaveSuccess(false);
     }, 3000);
   };
-
-  if (!isLoaded) {
-    return <div className="p-4 text-center text-gray-500">加载中...</div>;
-  }
 
   return (
     <div className="p-4 bg-white space-y-4">

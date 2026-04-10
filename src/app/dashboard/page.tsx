@@ -64,8 +64,9 @@ export default function Dashboard() {
     ? parseObserverTable(data.components.queue.status) 
     : [];
 
-  const semanticQueue = queueData.find(q => q.Queue === 'Semantic');
-  const embeddingQueue = queueData.find(q => q.Queue === 'Embedding');
+  const semanticQueue = queueData.find((q) => q.Queue === "Semantic");
+  const embeddingQueue = queueData.find((q) => q.Queue === "Embedding");
+  const semanticNodesQueue = queueData.find((q) => q.Queue === "Semantic-Nodes");
 
   const vikingdbData = data?.components?.vikingdb?.status
     ? parseObserverTable(data.components.vikingdb.status)
@@ -100,6 +101,34 @@ export default function Dashboard() {
     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}`}>
       {text}
     </span>
+  );
+
+  const renderQueueSection = (title: string, row: Record<string, string> | undefined) => (
+    <div>
+      <h4 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2">{title}</h4>
+      <div className="grid grid-cols-5 gap-2 text-center">
+        <div className="bg-blue-50 p-2 rounded-md">
+          <p className="text-[10px] text-blue-600 mb-1">处理中</p>
+          <p className="text-lg font-semibold text-blue-700">{row?.["In Progress"] || "0"}</p>
+        </div>
+        <div className="bg-yellow-50 p-2 rounded-md">
+          <p className="text-[10px] text-yellow-600 mb-1">待处理</p>
+          <p className="text-lg font-semibold text-yellow-700">{row?.Pending || "0"}</p>
+        </div>
+        <div className="bg-green-50 p-2 rounded-md">
+          <p className="text-[10px] text-green-600 mb-1">已完成</p>
+          <p className="text-lg font-semibold text-green-700">{row?.Processed || "0"}</p>
+        </div>
+        <div className="bg-red-50 p-2 rounded-md">
+          <p className="text-[10px] text-red-600 mb-1">错误数</p>
+          <p className="text-lg font-semibold text-red-700">{row?.Errors || "0"}</p>
+        </div>
+        <div className="bg-gray-50 p-2 rounded-md border border-gray-200">
+          <p className="text-[10px] text-gray-600 mb-1">总计</p>
+          <p className="text-lg font-semibold text-gray-700">{row?.Total || "0"}</p>
+        </div>
+      </div>
+    </div>
   );
 
   return (
@@ -169,57 +198,9 @@ export default function Dashboard() {
               )}
             </div>
             <div className="p-4 flex-1 space-y-6">
-              <div>
-                <h4 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2">语义处理队列</h4>
-                <div className="grid grid-cols-5 gap-2 text-center">
-                  <div className="bg-blue-50 p-2 rounded-md">
-                    <p className="text-[10px] text-blue-600 mb-1">处理中</p>
-                    <p className="text-lg font-semibold text-blue-700">{semanticQueue?.['In Progress'] || '0'}</p>
-                  </div>
-                  <div className="bg-yellow-50 p-2 rounded-md">
-                    <p className="text-[10px] text-yellow-600 mb-1">待处理</p>
-                    <p className="text-lg font-semibold text-yellow-700">{semanticQueue?.Pending || '0'}</p>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded-md">
-                    <p className="text-[10px] text-green-600 mb-1">已完成</p>
-                    <p className="text-lg font-semibold text-green-700">{semanticQueue?.Processed || '0'}</p>
-                  </div>
-                  <div className="bg-red-50 p-2 rounded-md">
-                    <p className="text-[10px] text-red-600 mb-1">错误数</p>
-                    <p className="text-lg font-semibold text-red-700">{semanticQueue?.Errors || '0'}</p>
-                  </div>
-                  <div className="bg-gray-50 p-2 rounded-md border border-gray-200">
-                    <p className="text-[10px] text-gray-600 mb-1">总计</p>
-                    <p className="text-lg font-semibold text-gray-700">{semanticQueue?.Total || '0'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2">嵌入向量队列</h4>
-                <div className="grid grid-cols-5 gap-2 text-center">
-                  <div className="bg-blue-50 p-2 rounded-md">
-                    <p className="text-[10px] text-blue-600 mb-1">处理中</p>
-                    <p className="text-lg font-semibold text-blue-700">{embeddingQueue?.['In Progress'] || '0'}</p>
-                  </div>
-                  <div className="bg-yellow-50 p-2 rounded-md">
-                    <p className="text-[10px] text-yellow-600 mb-1">待处理</p>
-                    <p className="text-lg font-semibold text-yellow-700">{embeddingQueue?.Pending || '0'}</p>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded-md">
-                    <p className="text-[10px] text-green-600 mb-1">已完成</p>
-                    <p className="text-lg font-semibold text-green-700">{embeddingQueue?.Processed || '0'}</p>
-                  </div>
-                  <div className="bg-red-50 p-2 rounded-md">
-                    <p className="text-[10px] text-red-600 mb-1">错误数</p>
-                    <p className="text-lg font-semibold text-red-700">{embeddingQueue?.Errors || '0'}</p>
-                  </div>
-                  <div className="bg-gray-50 p-2 rounded-md border border-gray-200">
-                    <p className="text-[10px] text-gray-600 mb-1">总计</p>
-                    <p className="text-lg font-semibold text-gray-700">{embeddingQueue?.Total || '0'}</p>
-                  </div>
-                </div>
-              </div>
+              {renderQueueSection("嵌入向量队列", embeddingQueue)}
+              {renderQueueSection("语义处理队列", semanticQueue)}
+              {renderQueueSection("Semantic-Nodes", semanticNodesQueue)}
             </div>
           </div>
 
