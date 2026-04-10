@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { searchFind, searchSearch } from "@/lib/api/openviking";
+import { searchFind, searchSearch, isUnauthenticatedError } from "@/lib/api/openviking";
 
 interface SearchResult {
   uri: string;
@@ -70,6 +70,11 @@ export default function SearchPage() {
       
       setResults(items);
     } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        setError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）。请检查服务端 OPENVIKING_ROOT_KEY 并重启 Next.js 服务后重试。");
+        setResults([]);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Search failed");
       setResults([]);
     } finally {

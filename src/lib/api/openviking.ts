@@ -5,6 +5,48 @@
 const isTest = typeof process !== 'undefined' && process.env.VITEST;
 const isServer = typeof window === 'undefined' || isTest;
 
+export class OpenVikingApiError extends Error {
+  status: number;
+  statusText: string;
+  url: string;
+  bodyText: string;
+  bodyJson?: unknown;
+  code?: string;
+
+  constructor(args: {
+    message: string;
+    status: number;
+    statusText: string;
+    url: string;
+    bodyText: string;
+    bodyJson?: unknown;
+    code?: string;
+  }) {
+    super(args.message);
+    this.name = 'OpenVikingApiError';
+    this.status = args.status;
+    this.statusText = args.statusText;
+    this.url = args.url;
+    this.bodyText = args.bodyText;
+    this.bodyJson = args.bodyJson;
+    this.code = args.code;
+  }
+}
+
+export function isUnauthenticatedError(err: unknown) {
+  if (err instanceof OpenVikingApiError) {
+    return err.status === 401 || err.code === 'UNAUTHENTICATED';
+  }
+  if (!(err instanceof Error)) return false;
+  const msg = err.message || '';
+  return (
+    msg.includes('401') ||
+    msg.includes('UNAUTHENTICATED') ||
+    msg.toLowerCase().includes('unauthorized') ||
+    msg.includes('Invalid API Key')
+  );
+}
+
 // For server-side (tests), we bypass the Next.js proxy and hit the OpenViking API directly
 const getBaseUrl = () => {
   if (isServer) {
@@ -48,8 +90,43 @@ async function fetchApi(url: string, options: RequestInit = {}) {
   });
   
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`API Error: ${res.status} ${res.statusText} ${errText}`);
+    const bodyText = await res.text().catch(() => '');
+    let bodyJson: unknown | undefined;
+    try {
+      bodyJson = bodyText ? JSON.parse(bodyText) : undefined;
+    } catch {
+      bodyJson = undefined;
+    }
+
+    const bodyObj =
+      typeof bodyJson === 'object' && bodyJson ? (bodyJson as Record<string, unknown>) : undefined;
+    const errorObj =
+      bodyObj && typeof bodyObj.error === 'object' && bodyObj.error
+        ? (bodyObj.error as Record<string, unknown>)
+        : undefined;
+
+    const codeRaw = (errorObj?.code ?? bodyObj?.code) as unknown;
+    const code = typeof codeRaw === 'string' ? codeRaw : undefined;
+
+    const messageRaw = (errorObj?.message ?? bodyObj?.message) as unknown;
+    const messageFromBody = typeof messageRaw === 'string' ? messageRaw : undefined;
+
+    const baseMessage = `API Error: ${res.status} ${res.statusText}`;
+    const fullMessage = messageFromBody
+      ? `${baseMessage} ${messageFromBody}`
+      : bodyText
+        ? `${baseMessage} ${bodyText}`
+        : baseMessage;
+
+    throw new OpenVikingApiError({
+      message: fullMessage,
+      status: res.status,
+      statusText: res.statusText,
+      url: target,
+      bodyText,
+      bodyJson,
+      code,
+    });
   }
   return res.json();
 }
@@ -80,7 +157,7 @@ export async function getAccountUsers(accountId: string) {
   return fetchApi(`/admin/accounts/${accountId}/users`);
 }
 
-export async function createAccountUser(accountId: string, data: { user_id: string; role?: string; metadata?: any }) {
+export async function createAccountUser(accountId: string, data: { user_id: string; role?: string; metadata?: unknown }) {
   return fetchApi(`/admin/accounts/${accountId}/users`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

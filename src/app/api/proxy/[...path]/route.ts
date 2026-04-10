@@ -61,13 +61,14 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
     }
 
     // Prepare options for the fetch call
-    const fetchOptions: RequestInit & { duplex?: string, dispatcher?: any } = {
+    const fetchOptions: RequestInit & { duplex?: string; dispatcher?: unknown } = {
       method: req.method,
       headers,
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body,
       // Disable caching for the proxy
       cache: 'no-store',
-      duplex: 'half'
+      duplex: 'half',
+      dispatcher: proxyAgent,
     }
 
     const response = await fetch(targetUrl, fetchOptions)

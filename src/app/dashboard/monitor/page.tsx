@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSystemObserver } from "@/lib/api/openviking";
+import { getSystemObserver, isUnauthenticatedError } from "@/lib/api/openviking";
 import { parseObserverTable } from "@/lib/utils/observer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -109,7 +109,7 @@ const StatusTable = ({ statusStr }: { statusStr: string }) => {
 };
 
 export default function MonitorPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,6 +120,10 @@ export default function MonitorPage() {
       const json = await getSystemObserver();
       setData(json);
     } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        setError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）。请检查服务端 OPENVIKING_ROOT_KEY 并重启 Next.js 服务后重试。");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Failed to fetch system status");
     } finally {
       setLoading(false);
@@ -150,7 +154,33 @@ export default function MonitorPage() {
     );
   };
 
-  const observerData = data?.result || data;
+  const observerData: Record<string, unknown> | null = (() => {
+    if (!data || typeof data !== 'object') return null;
+    const obj = data as Record<string, unknown>;
+    const result = obj.result;
+    if (result && typeof result === 'object') return result as Record<string, unknown>;
+    return obj;
+  })();
+
+  const overallBadge = (() => {
+    const isHealthy = observerData?.is_healthy;
+    if (isHealthy !== undefined) {
+      return renderStatusBadge(Boolean(isHealthy) ? 'healthy' : 'error');
+    }
+
+    const status = observerData?.status;
+    if (typeof status === 'string' && !status.includes('\n')) {
+      return renderStatusBadge(status);
+    }
+
+    return null;
+  })();
+
+  const componentStatusMap: Record<string, unknown> | null = (() => {
+    const raw = observerData?.components ?? observerData?.services ?? observerData?.dependencies;
+    if (!raw || typeof raw !== 'object') return null;
+    return raw as Record<string, unknown>;
+  })();
 
   return (
     <div className="space-y-6">
@@ -189,9 +219,7 @@ export default function MonitorPage() {
                 <h3 className="text-lg leading-6 font-medium text-gray-900">系统整体状态</h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">当前系统及各模块健康指标概览</p>
               </div>
-              {observerData?.is_healthy !== undefined 
-                ? renderStatusBadge(observerData.is_healthy ? 'healthy' : 'error') 
-                : (observerData?.status && typeof observerData.status === 'string' && !observerData.status.includes('\n') && renderStatusBadge(observerData.status))}
+              {overallBadge}
             </div>
             <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
               <dl className="sm:divide-y sm:divide-gray-200">
@@ -231,29 +259,40 @@ export default function MonitorPage() {
           </div>
 
           {/* 组件状态列表 */}
-          {(observerData?.components || observerData?.services || observerData?.dependencies) && (
+          {componentStatusMap && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">组件健康状态</h3>
               </div>
               <div className="border-t border-gray-200">
                 <ul className="divide-y divide-gray-200">
-                  {Object.entries(observerData?.components || observerData?.services || observerData?.dependencies || {}).map(([name, info]: [string, any]) => {
-                    const hasMarkdown = isMarkdownString(info.status);
-                    const isMultiline = isMultilineText(info.status);
+                  {Object.entries(componentStatusMap).map(([name, info]) => {
+                    const infoObj =
+                      typeof info === 'object' && info ? (info as Record<string, unknown>) : {};
+                    const statusVal = infoObj.status;
+                    const messageVal = infoObj.message;
+                    const latencyVal = infoObj.latency;
+                    const isHealthyVal = infoObj.is_healthy;
+
+                    const hasMarkdown = isMarkdownString(statusVal);
+                    const isMultiline = isMultilineText(statusVal);
 
                     return (
                     <li key={name} className="px-4 py-4 sm:px-6 flex flex-col gap-4">
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-gray-900">{translateKey(name)}</span>
-                          {info.message && <span className="text-sm text-gray-500">{info.message}</span>}
+                          {messageVal !== undefined && messageVal !== null && (
+                            <span className="text-sm text-gray-500">{String(messageVal)}</span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-4">
-                          {info.latency && <span className="text-sm text-gray-500">{info.latency}</span>}
-                          {info.is_healthy !== undefined 
-                            ? renderStatusBadge(info.is_healthy ? 'healthy' : 'error')
-                            : renderStatusBadge(info.status && typeof info.status === 'string' && !info.status.includes('\n') ? info.status : 'unknown')}
+                          {latencyVal !== undefined && latencyVal !== null && (
+                            <span className="text-sm text-gray-500">{String(latencyVal)}</span>
+                          )}
+                          {isHealthyVal !== undefined 
+                            ? renderStatusBadge(Boolean(isHealthyVal) ? 'healthy' : 'error')
+                            : renderStatusBadge(typeof statusVal === 'string' && !statusVal.includes('\n') ? statusVal : 'unknown')}
                         </div>
                       </div>
                       
@@ -261,17 +300,18 @@ export default function MonitorPage() {
                         <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
                           <div className="prose prose-sm max-w-none text-gray-700">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {info.status}
+                              {String(statusVal)}
                             </ReactMarkdown>
                           </div>
                         </div>
                       ) : isMultiline ? (
                         <div className="mt-2 bg-gray-50 p-4 rounded-md border border-gray-200 overflow-x-auto">
-                          <StatusTable statusStr={String(info.status)} />
+                          <StatusTable statusStr={String(statusVal)} />
                         </div>
                       ) : null}
                     </li>
-                  )})}
+                    );
+                  })}
                 </ul>
               </div>
             </div>

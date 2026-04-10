@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   getAccounts,
   createAccount,
@@ -21,7 +21,10 @@ import {
 const TEST_ACCOUNT_ID = `test-acc-${Date.now()}`;
 const TEST_USER_ID = `user-${Date.now()}`;
 
-describe('OpenViking API Client Integration Tests', () => {
+const integrationEnabled = process.env.OPENVIKING_INTEGRATION === '1';
+const describeIntegration = integrationEnabled ? describe : describe.skip;
+
+describeIntegration('OpenViking API Client Integration Tests', () => {
   
   // ==========================================
   // Admin API (租户/用户管理)
@@ -38,7 +41,9 @@ describe('OpenViking API Client Integration Tests', () => {
       const res = await getAccounts();
       expect(res.status).toBe('ok');
       expect(Array.isArray(res.result)).toBe(true);
-      const found = res.result.find((acc: any) => acc.account_id === TEST_ACCOUNT_ID);
+      const found = (res.result as Record<string, unknown>[]).find(
+        (acc) => typeof acc.account_id === 'string' && acc.account_id === TEST_ACCOUNT_ID
+      );
       expect(found).toBeDefined();
     });
 
@@ -46,9 +51,11 @@ describe('OpenViking API Client Integration Tests', () => {
       const res = await getAccountUsers(TEST_ACCOUNT_ID);
       expect(res.status).toBe('ok');
       expect(Array.isArray(res.result)).toBe(true);
-      const adminUser = res.result.find((u: any) => u.user_id === TEST_USER_ID);
+      const adminUser = (res.result as Record<string, unknown>[]).find(
+        (u) => typeof u.user_id === 'string' && u.user_id === TEST_USER_ID
+      );
       expect(adminUser).toBeDefined();
-      expect(adminUser.role).toBe('admin');
+      expect((adminUser as Record<string, unknown>).role).toBe('admin');
     });
 
     it('should create a new user in the account', async () => {
@@ -104,8 +111,8 @@ describe('OpenViking API Client Integration Tests', () => {
     it('should handle read file error gracefully (e.g. file not found)', async () => {
       try {
         await readFileContent('viking://resources/non-existent-file.txt', headers);
-      } catch (err: any) {
-        expect(err.message).toContain('API Error');
+      } catch (err) {
+        expect(err instanceof Error ? err.message : String(err)).toContain('API Error');
       }
     });
 
@@ -158,11 +165,11 @@ describe('OpenViking API Client Integration Tests', () => {
       try {
         const res = await searchSearch('test query with intent', 5, 'test-session-id', undefined, headers);
         expect(res).toBeDefined();
-      } catch (e: any) {
+      } catch (e) {
         console.error('searchSearch failed:', e);
         // It might fail due to lack of LLM or intent analysis failure in test env, which is okay as long as it's an API Error not a proxy/timeout error.
         // We will just assert it's an error.
-        expect(e.message).toBeDefined();
+        expect(e instanceof Error ? e.message : String(e)).toBeDefined();
       }
     }, 60000);
   });

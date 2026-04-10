@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getAccounts, createAccount, deleteAccount } from "@/lib/api/openviking";
+import { getAccounts, createAccount, deleteAccount, isUnauthenticatedError } from "@/lib/api/openviking";
 
 interface Account {
   account_id: string;
@@ -17,15 +17,25 @@ export default function AccountsPage() {
   const [newAccountId, setNewAccountId] = useState("");
   const [newAdminId, setNewAdminId] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeyErrorDetails, setApiKeyErrorDetails] = useState<string | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
     try {
+      setApiKeyError(null);
+      setApiKeyErrorDetails(null);
       const data = await getAccounts();
       if (data.status === "ok") {
         setAccounts(data.result || []);
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        setAccounts([]);
+        return;
+      }
       console.error("Failed to fetch accounts", error);
     } finally {
       setLoading(false);
@@ -52,6 +62,11 @@ export default function AccountsPage() {
         alert("创建失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to create account", error);
     }
   };
@@ -66,6 +81,11 @@ export default function AccountsPage() {
         alert("删除失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to delete account", error);
     }
   };
@@ -77,6 +97,34 @@ export default function AccountsPage() {
 
   return (
     <div>
+      {apiKeyError && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{apiKeyError}</div>
+              <div className="mt-1 text-sm text-red-700">
+                请检查服务端配置的 OPENVIKING_ROOT_KEY 是否正确/有权限，并重启 Next.js 服务后重试。
+              </div>
+              {apiKeyErrorDetails && (
+                <div className="mt-2 text-xs font-mono whitespace-pre-wrap break-words text-red-700">
+                  {apiKeyErrorDetails}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-100"
+              onClick={() => {
+                setApiKeyError(null);
+                setApiKeyErrorDetails(null);
+              }}
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">工作区管理</h1>
         <button

@@ -10,7 +10,8 @@ import {
   getContentAbstract,
   getContentOverview,
   getAccounts,
-  getAccountUsers
+  getAccountUsers,
+  isUnauthenticatedError
 } from "@/lib/api/openviking";
 
 interface FSEntry {
@@ -232,11 +233,22 @@ export default function ResourcesPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("default");
   const [selectedUserId, setSelectedUserId] = useState<string>("admin");
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeyErrorDetails, setApiKeyErrorDetails] = useState<string | null>(null);
+
+  const handleAuthError = (err: unknown) => {
+    if (!isUnauthenticatedError(err)) return false;
+    setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+    setApiKeyErrorDetails(err instanceof Error ? err.message : String(err));
+    return true;
+  };
 
   useEffect(() => {
     const loadAccounts = async () => {
       setLoadingAccounts(true);
       try {
+        setApiKeyError(null);
+        setApiKeyErrorDetails(null);
         const data = await getAccounts();
         if (data.status === "ok") {
           setAccounts(data.result || []);
@@ -248,6 +260,10 @@ export default function ResourcesPage() {
           });
         }
       } catch (err) {
+        if (handleAuthError(err)) {
+          setAccounts([]);
+          return;
+        }
         console.error("Failed to load accounts", err);
       } finally {
         setLoadingAccounts(false);
@@ -270,6 +286,10 @@ export default function ResourcesPage() {
           }
         }
       } catch (err) {
+        if (handleAuthError(err)) {
+          setUsers([]);
+          return;
+        }
         console.error("Failed to load users", err);
       }
     };
@@ -305,6 +325,10 @@ export default function ResourcesPage() {
       }
     } catch (err: unknown) {
       console.error(err);
+      if (handleAuthError(err)) {
+        setEntries([]);
+        return;
+      }
       if (err instanceof Error && (err.message.includes('404') || err.message.includes('NOT_FOUND'))) {
         setEntries([]);
       } else {
@@ -356,6 +380,10 @@ export default function ResourcesPage() {
       setEntries(searchEntries);
     } catch (err: unknown) {
       console.error(err);
+      if (handleAuthError(err)) {
+        setEntries([]);
+        return;
+      }
       if (err instanceof Error && (err.message.includes('404') || err.message.includes('NOT_FOUND'))) {
         setEntries([]);
       } else {
@@ -385,6 +413,10 @@ export default function ResourcesPage() {
       }
     } catch (err) {
       console.error(err);
+      if (handleAuthError(err)) {
+        setFileContent("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        return;
+      }
       setFileContent("Error loading content.");
     } finally {
       setLoadingContent(false);
@@ -436,6 +468,7 @@ export default function ResourcesPage() {
       setIsUploadModalOpen(false); // Close modal on success
     } catch (err) {
       console.error(err);
+      if (handleAuthError(err)) return;
       alert("Upload failed: " + (err as Error).message);
     } finally {
       setUploading(false);
@@ -446,7 +479,36 @@ export default function ResourcesPage() {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg h-[calc(100vh-8rem)] flex overflow-hidden">
+    <div className="space-y-4">
+      {apiKeyError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{apiKeyError}</div>
+              <div className="mt-1 text-sm text-red-700">
+                请检查服务端配置的 OPENVIKING_ROOT_KEY 是否正确/有权限，并重启 Next.js 服务后重试。
+              </div>
+              {apiKeyErrorDetails && (
+                <div className="mt-2 text-xs font-mono whitespace-pre-wrap break-words text-red-700">
+                  {apiKeyErrorDetails}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-100"
+              onClick={() => {
+                setApiKeyError(null);
+                setApiKeyErrorDetails(null);
+              }}
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white shadow rounded-lg h-[calc(100vh-8rem)] flex overflow-hidden">
       {/* Left Panel: File List */}
       <div className="w-1/3 border-r flex flex-col bg-gray-50">
         <div className="p-4 border-b bg-white flex justify-between items-center">
@@ -635,6 +697,7 @@ export default function ResourcesPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

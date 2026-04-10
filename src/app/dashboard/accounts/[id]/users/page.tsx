@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { getAccountUsers, createAccountUser, deleteAccountUser, updateAccountUserRole, regenerateAccountUserKey } from "@/lib/api/openviking";
+import { getAccountUsers, createAccountUser, deleteAccountUser, updateAccountUserRole, regenerateAccountUserKey, isUnauthenticatedError } from "@/lib/api/openviking";
 
 interface User {
   user_id: string;
@@ -21,15 +21,25 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
   const [newUserId, setNewUserId] = useState("");
   const [newUserRole, setNewUserRole] = useState("user");
   const [modalKey, setModalKey] = useState<string | null>(null);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeyErrorDetails, setApiKeyErrorDetails] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
+      setApiKeyError(null);
+      setApiKeyErrorDetails(null);
       const data = await getAccountUsers(accountId);
       if (data.status === "ok") {
         setUsers(data.result || []);
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        setUsers([]);
+        return;
+      }
       console.error("Failed to fetch users", error);
     } finally {
       setLoading(false);
@@ -56,6 +66,11 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
         alert("注册失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to create user", error);
     }
   };
@@ -70,6 +85,11 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
         alert("删除失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to delete user", error);
     }
   };
@@ -84,6 +104,11 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
         alert("修改失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to change role", error);
     }
   };
@@ -98,6 +123,11 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
         alert("重新生成失败: " + JSON.stringify(data));
       }
     } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        setApiKeyError("API Key 无效或无权限（401 UNAUTHENTICATED / Invalid API Key）");
+        setApiKeyErrorDetails(error instanceof Error ? error.message : String(error));
+        return;
+      }
       console.error("Failed to regenerate key", error);
     }
   };
@@ -113,6 +143,34 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
 
   return (
     <div>
+      {apiKeyError && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{apiKeyError}</div>
+              <div className="mt-1 text-sm text-red-700">
+                请检查服务端配置的 OPENVIKING_ROOT_KEY 是否正确/有权限，并重启 Next.js 服务后重试。
+              </div>
+              {apiKeyErrorDetails && (
+                <div className="mt-2 text-xs font-mono whitespace-pre-wrap break-words text-red-700">
+                  {apiKeyErrorDetails}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-100"
+              onClick={() => {
+                setApiKeyError(null);
+                setApiKeyErrorDetails(null);
+              }}
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4">
         <Link href="/dashboard/accounts" className="text-blue-600 hover:text-blue-900 text-sm">
           &larr; 返回工作区列表

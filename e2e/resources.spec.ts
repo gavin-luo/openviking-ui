@@ -2,12 +2,21 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
-let authData: any;
+type AuthData = { apiKey: string; accountId: string; userId: string };
+let authData: AuthData | null = null;
 
 test.beforeAll(() => {
   const authFilePath = path.join(__dirname, '.test-auth.json');
   if (fs.existsSync(authFilePath)) {
-    authData = JSON.parse(fs.readFileSync(authFilePath, 'utf-8'));
+    const parsed = JSON.parse(fs.readFileSync(authFilePath, 'utf-8')) as Partial<AuthData>;
+    if (
+      parsed &&
+      typeof parsed.apiKey === 'string' &&
+      typeof parsed.accountId === 'string' &&
+      typeof parsed.userId === 'string'
+    ) {
+      authData = parsed as AuthData;
+    }
   }
 });
 
