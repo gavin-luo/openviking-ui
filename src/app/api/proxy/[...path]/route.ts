@@ -29,6 +29,9 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
     // Prepare headers, injecting the API key
     const headers = new Headers(req.headers)
     headers.delete('host') // Remove the host header to avoid conflicts
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      headers.delete('content-length')
+    }
     
     if (pathname.startsWith('admin') || pathname.startsWith('observer')) {
       headers.set('X-API-Key', process.env.OPENVIKING_ROOT_KEY || '')
