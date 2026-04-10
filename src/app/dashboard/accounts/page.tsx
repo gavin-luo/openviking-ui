@@ -72,7 +72,7 @@ export default function AccountsPage() {
   };
 
   const handleDelete = async (accountId: string) => {
-    if (!confirm(`确定要删除工作区 ${accountId} 吗？这会删除所有关联数据！`)) return;
+    if (!confirm(`确定要删除命名空间 ${accountId} 吗？这会删除所有关联数据！`)) return;
     try {
       const data = await deleteAccount(accountId);
       if (data.status === "ok") {
@@ -126,12 +126,12 @@ export default function AccountsPage() {
       )}
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">工作区管理</h1>
+        <h1 className="text-2xl font-bold text-gray-900">命名空间管理</h1>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
         >
-          创建工作区
+          创建命名空间
         </button>
       </div>
 
@@ -143,7 +143,7 @@ export default function AccountsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Account ID
+                  Namespace ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   用户数
@@ -192,7 +192,7 @@ export default function AccountsPage() {
               {accounts.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-6 py-4 text-center text-gray-500 text-sm">
-                    暂无工作区
+                    暂无命名空间
                   </td>
                 </tr>
               )}
@@ -205,7 +205,7 @@ export default function AccountsPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4 text-black">创建工作区</h2>
+            <h2 className="text-xl font-bold mb-4 text-black">创建命名空间</h2>
             {createdKey ? (
               <div>
                 <div className="p-4 bg-green-50 text-green-800 rounded-md mb-4 border border-green-200">
@@ -250,7 +250,7 @@ export default function AccountsPage() {
                 </div>
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    初始管理员 User ID
+                    初始管理员用户
                   </label>
                   <input
                     type="text"

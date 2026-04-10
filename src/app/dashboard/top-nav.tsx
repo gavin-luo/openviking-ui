@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { name: "概览", href: "/dashboard" },
-  { name: "租户管理", href: "/dashboard/accounts" },
-  { name: "资源中心", href: "/dashboard/resources" },
+  { name: "命名空间管理", href: "/dashboard/accounts" },
+  { name: "资源管理", href: "/dashboard/resources" },
   { name: "监控面板", href: "/dashboard/monitor" },
   { name: "检索测试", href: "/dashboard/search" },
 ];

@@ -224,12 +224,14 @@ export async function tempUploadResource(file: File, headers?: Record<string, st
   });
 }
 
-export async function addResource(data: { temp_file_id: string; target: string; wait?: boolean }, headers?: Record<string, string>) {
+export async function addResource(data: { temp_file_id: string; target: string; wait?: boolean; include?: string; exclude?: string }, headers?: Record<string, string>) {
   // The server API uses 'to' instead of 'target' in the request body
   const payload = {
     temp_file_id: data.temp_file_id,
     to: data.target,
     wait: data.wait,
+    include: data.include,
+    exclude: data.exclude,
   };
   return fetchApi('/resources', {
     method: 'POST',

@@ -173,12 +173,12 @@ export default function UsersPage(props: { params: Promise<{ id: string }> }) {
 
       <div className="mb-4">
         <Link href="/dashboard/accounts" className="text-blue-600 hover:text-blue-900 text-sm">
-          &larr; 返回工作区列表
+          &larr; 返回命名空间列表
         </Link>
       </div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          工作区 <span className="text-blue-600">{accountId}</span> 的用户管理
+          命名空间 <span className="text-blue-600">{accountId}</span> 的用户管理
         </h1>
         <button
           onClick={() => setShowCreateModal(true)}

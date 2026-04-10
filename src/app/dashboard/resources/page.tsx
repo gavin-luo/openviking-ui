@@ -14,6 +14,8 @@ import {
   getAccountUsers,
   isUnauthenticatedError
 } from "@/lib/api/openviking";
+import { VersionTimeline } from "@/components/resources/version-timeline";
+import { NodePermissions } from "@/components/resources/node-permissions";
 
 interface FSEntry {
   name: string;
@@ -83,6 +85,7 @@ function TreeNode({
   onSelectFile,
   onDelete,
   onDeleted,
+  onEditPermissions,
   isSearching,
   headers,
 }: {
@@ -94,6 +97,7 @@ function TreeNode({
   onSelectFile: (entry: FSEntry) => void;
   onDelete: (entry: FSEntry) => Promise<boolean>;
   onDeleted?: (uri: string) => void;
+  onEditPermissions?: (uri: string) => void;
   isSearching: boolean;
   headers?: Record<string, string>;
 }) {
@@ -208,9 +212,22 @@ function TreeNode({
             </span>
           )}
 
+          {!isSearching && onEditPermissions && (
+            <button
+              type="button"
+              className="ml-3 text-xs text-gray-500 hover:text-blue-600 hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditPermissions(entry.uri);
+              }}
+            >
+              权限
+            </button>
+          )}
+
           <button
             type="button"
-            className="ml-3 text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:hover:no-underline"
+            className="ml-2 text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:hover:no-underline"
             onClick={async (e) => {
               e.stopPropagation();
               if (isDeleting) return;
@@ -260,6 +277,7 @@ function TreeNode({
                 onDeleted={(uri) => {
                   setChildren((prev) => (prev ? prev.filter((e) => e.uri !== uri) : prev));
                 }}
+                onEditPermissions={onEditPermissions}
                 isSearching={isSearching}
                 headers={headers}
               />
@@ -281,6 +299,7 @@ export default function ResourcesPage() {
   const [selectedFile, setSelectedFile] = useState<FSEntry | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -288,6 +307,11 @@ export default function ResourcesPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadErrorDetails, setUploadErrorDetails] = useState<string | null>(null);
+  const [uploadInclude, setUploadInclude] = useState<string>("");
+  const [uploadExclude, setUploadExclude] = useState<string>("");
+
+  const [selectedPermissionUri, setSelectedPermissionUri] = useState<string | null>(null);
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
 
   const [accounts, setAccounts] = useState<Record<string, unknown>[]>([]);
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
@@ -464,6 +488,7 @@ export default function ResourcesPage() {
     setSelectedFile(file);
     setLoadingContent(true);
     setFileContent(null);
+    setShowHistory(false);
     try {
       const data = await readFileContent(file.uri, tenantHeaders);
       if (data.status === "ok") {
@@ -522,6 +547,11 @@ export default function ResourcesPage() {
     }
   }, [currentUri, handleAuthError, selectedFile?.uri, tenantHeaders]);
 
+  const handleEditPermissions = useCallback((uri: string) => {
+    setSelectedPermissionUri(uri);
+    setIsPermissionModalOpen(true);
+  }, []);
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -554,6 +584,8 @@ export default function ResourcesPage() {
         temp_file_id: tempFileId,
         target: targetUri,
         wait: false,
+        include: uploadInclude.trim() || undefined,
+        exclude: uploadExclude.trim() || undefined,
       }, tenantHeaders);
 
       // After upload, re-fetch the root list to update the tree.
@@ -561,6 +593,8 @@ export default function ResourcesPage() {
         fetchRootList();
       }
       setIsUploadModalOpen(false); // Close modal on success
+      setUploadInclude("");
+      setUploadExclude("");
     } catch (err) {
       console.error(err);
       if (handleAuthError(err)) return;
@@ -726,6 +760,7 @@ export default function ResourcesPage() {
                   onDeleted={(uri) => {
                     setEntries((prev) => prev.filter((e) => e.uri !== uri));
                   }}
+                  onEditPermissions={handleEditPermissions}
                   isSearching={isSearching}
                   headers={tenantHeaders}
                 />
@@ -739,15 +774,27 @@ export default function ResourcesPage() {
       <div className="flex-1 flex flex-col bg-white overflow-hidden">
         {selectedFile ? (
           <>
-            <div className="p-4 border-b flex items-center">
-              <span className="text-2xl mr-3">📄</span>
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">{selectedFile.name}</h3>
-                <p className="text-sm text-gray-500">{selectedFile.uri}</p>
+            <div className="p-4 border-b flex justify-between items-center">
+              <div className="flex items-center">
+                <span className="text-2xl mr-3">📄</span>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">{selectedFile.name}</h3>
+                  <p className="text-sm text-gray-500">{selectedFile.uri}</p>
+                </div>
               </div>
+              <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 text-gray-700 transition-colors"
+              >
+                {showHistory ? "查看文件内容" : "查看历史版本"}
+              </button>
             </div>
             <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
-              {loadingContent ? (
+              {showHistory ? (
+                <div className="h-full max-w-3xl mx-auto">
+                  <VersionTimeline resourceUri={selectedFile.uri} />
+                </div>
+              ) : loadingContent ? (
                 <div className="text-center text-gray-500 mt-10">加载内容中...</div>
               ) : fileContent === null ? (
                 <div className="text-center text-gray-500 mt-10">暂无内容</div>
@@ -793,6 +840,29 @@ export default function ResourcesPage() {
               </p>
             </div>
 
+            <div className="mb-6 flex gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-2">包含文件 (include)：</p>
+                <input
+                  type="text"
+                  placeholder="如: *.md, src/**/*.ts (逗号分隔)"
+                  className="w-full bg-white p-2 rounded text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={uploadInclude}
+                  onChange={(e) => setUploadInclude(e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-2">排除文件 (exclude)：</p>
+                <input
+                  type="text"
+                  placeholder="如: node_modules/**, .git/**"
+                  className="w-full bg-white p-2 rounded text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={uploadExclude}
+                  onChange={(e) => setUploadExclude(e.target.value)}
+                />
+              </div>
+            </div>
+
             {uploadError && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-800 rounded-md px-4 py-3">
                 <div className="font-semibold">{uploadError}</div>
@@ -810,6 +880,8 @@ export default function ResourcesPage() {
                   setIsUploadModalOpen(false);
                   setUploadError(null);
                   setUploadErrorDetails(null);
+                  setUploadInclude("");
+                  setUploadExclude("");
                 }}
                 className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
                 disabled={uploading}
@@ -837,6 +909,26 @@ export default function ResourcesPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {isPermissionModalOpen && selectedPermissionUri && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-2 w-[500px] shadow-xl">
+            <NodePermissions nodeUri={selectedPermissionUri} />
+            <div className="flex justify-end gap-3 p-4 border-t">
+              <button
+                onClick={() => {
+                  setIsPermissionModalOpen(false);
+                  setSelectedPermissionUri(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                关闭
+              </button>
             </div>
           </div>
         </div>
