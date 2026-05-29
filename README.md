@@ -1,6 +1,7 @@
 [**中文**](./README.md) | [**English**](./README_EN.md)
 
 # OpenViking Admin Frontend
+ 感谢原作者 ruansheng8 的辛勤劳动，做出了这么好用的管理界面。
 
 OpenViking Admin Frontend 是基于 [OpenViking](https://github.com/volcengine/OpenViking) 官方 HTTP API 打造的 Web 可视化管理后台。
 
